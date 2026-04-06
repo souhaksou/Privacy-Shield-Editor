@@ -1,0 +1,11 @@
+---
+description: UI — PrimeVue components first; Tailwind for layout and gaps
+globs: "**/*.vue"
+alwaysApply: false
+---
+
+# UI
+
+- Prefer **PrimeVue** for interactive components (buttons, inputs, dialogs, tables, feedback) when a suitable component exists.
+- Use **Tailwind** for layout, spacing, and responsive structure when PrimeVue does not provide a component or for one-off composition.
+- Do not replace PrimeVue components with raw HTML + heavy Tailwind recreation without a clear reason.
