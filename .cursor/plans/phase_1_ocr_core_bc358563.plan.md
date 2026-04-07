@@ -4,10 +4,10 @@ overview: 在既有 Vite + Vue 3 + Pinia + Tesseract.js 棧上，以最少檔案
 todos:
   - id: types-core
     content: Add src/types/ocr.ts and src/core/ocr/normalize.ts (pure types + normalization).
-    status: pending
+    status: completed
   - id: worker
     content: Implement src/workers/ocr.worker.ts with Tesseract recognize + postMessage protocol.
-    status: pending
+    status: completed
   - id: composable-stores
     content: Add useOcr composable + document/editor Pinia stores; wire worker lifecycle and state updates.
     status: pending

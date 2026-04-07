@@ -120,7 +120,7 @@ async function handleRecognize(request: OcrWorkerRequest): Promise<void> {
     const image = request.payload.image;
 
     const engine = await getOrCreateEngine(lang);
-    const result = await engine.recognize(image);
+    const result = await engine.recognize(image, {}, { blocks: true });
     const sourceWords = extractWordsFromPage(result.data);
 
     const successMessage: OcrWorkerResponse = {
