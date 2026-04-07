@@ -1,0 +1,22 @@
+---
+description: Pinia 一律使用 Setup Store（ref / computed）
+globs: "**/stores/**/*.{ts,js}"
+alwaysApply: false
+---
+
+# Pinia Store 形式（通用）
+
+## 必須
+
+- 使用 **Setup Store**：`defineStore('storeId', () => { ... })`。
+- 可變狀態用 **`ref`**（或 `reactive` 若你團隊有統一規範；未指定時預設 **`ref`**）。
+- 衍生狀態用 **`computed`**。
+- 行為封裝成 **一般函式**，最後 **`return { ... }`** 匯出給元件使用。
+
+## 避免
+
+- **Options Store**：不要使用 `state: () => ({})`、`actions: {}`、`getters: {}` 物件寫法（維護既有程式碼時除外，且以使用者明說不遷移為準）。
+
+## 備註
+
+- `storeId`、`useXxxStore` 命名維持 Pinia 慣例即可；本規則不規定業務分層或目錄結構。

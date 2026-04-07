@@ -4,7 +4,8 @@ import type { OcrWorkerRequest, OcrWorkerResponse } from "@/types/ocr";
 /**
  * OCR worker（Phase 1 最小實作）
  * - 接收 recognize 請求
- * - 回傳 progress / success / error
+ * - dispose 時先釋放 OCR 引擎，再回傳 disposed 並關閉 worker
+ * - 回傳 progress / success / error / disposed
  * - success payload 回傳 raw OCR 資料（由 normalize 模組統一轉換）
  */
 
@@ -109,12 +110,14 @@ async function releaseEngine(): Promise<void> {
 // SECTION 5) Message Handlers (worker <-> 主執行緒通訊)
 // ============================================================
 
+type RecognizeRequest = Extract<OcrWorkerRequest, { type: "recognize" }>;
+
 /**
  * 處理單次 OCR recognize 請求。
  *
  * @param request 主執行緒送入的 recognize 請求資料
  */
-async function handleRecognize(request: OcrWorkerRequest): Promise<void> {
+async function handleRecognize(request: RecognizeRequest): Promise<void> {
   try {
     const lang = request.payload.lang ?? "eng";
     const image = request.payload.image;
@@ -152,7 +155,20 @@ async function handleRecognize(request: OcrWorkerRequest): Promise<void> {
 self.onmessage = async (event: MessageEvent<OcrWorkerRequest>) => {
   const request = event.data;
 
-  if (!request || request.type !== "recognize") {
+  if (!request) return;
+
+  if (request.type === "dispose") {
+    try {
+      await releaseEngine();
+    } finally {
+      const message: OcrWorkerResponse = { type: "disposed", payload: {} };
+      self.postMessage(message);
+      self.close();
+    }
+    return;
+  }
+
+  if (request.type !== "recognize") {
     const message: OcrWorkerResponse = {
       type: "error",
       payload: { message: "Unsupported worker request type." },
@@ -163,11 +179,3 @@ self.onmessage = async (event: MessageEvent<OcrWorkerRequest>) => {
 
   await handleRecognize(request);
 };
-
-/**
- * 可選：在 worker 關閉前主動釋放 OCR 引擎資源。
- */
-self.addEventListener("close", () => {
-  // 不 await，避免阻塞 close 事件結束
-  void releaseEngine();
-});

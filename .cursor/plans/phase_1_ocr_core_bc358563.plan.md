@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: composable-stores
     content: Add useOcr composable + document/editor Pinia stores; wire worker lifecycle and state updates.
-    status: pending
+    status: completed
   - id: ui-wire
     content: Add minimal OcrPhase1View (file input, preview, run OCR, textarea) and mount in App or router.
     status: pending

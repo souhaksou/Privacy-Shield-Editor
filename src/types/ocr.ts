@@ -45,19 +45,22 @@ export interface OcrRawResult {
 /**
  * 主執行緒送給 OCR Worker 的請求。
  *
- * @property type 命令名稱，Phase 1 固定為 recognize
- * @property payload.image 要辨識的影像資料（Blob）
- * @property payload.lang 可選語言碼（例如 eng）
+ * `recognize` 用於提交影像辨識；`dispose` 用於要求 worker 先釋放 OCR 引擎再關閉。
  */
-export type OcrWorkerRequest = { type: "recognize"; payload: { image: Blob; lang?: string } };
+export type OcrWorkerRequest =
+  | { type: "recognize"; payload: { image: Blob; lang?: string } }
+  | { type: "dispose" };
 
 /**
  * OCR Worker 回傳給主執行緒的事件。
  *
- * @property type progress | success | error
- * @property payload progress: 進度資料；success: OCR 結果；error: 錯誤訊息
+ * - `progress`：辨識進度與狀態
+ * - `success`：原始 OCR 結果
+ * - `error`：錯誤訊息
+ * - `disposed`：確認已完成資源釋放，可安全結束 worker
  */
 export type OcrWorkerResponse =
   | { type: "progress"; payload: { progress: number; status?: string } }
   | { type: "success"; payload: OcrRawResult }
-  | { type: "error"; payload: { message: string } };
+  | { type: "error"; payload: { message: string } }
+  | { type: "disposed"; payload: Record<string, never> };
