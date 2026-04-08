@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: smoke-test
     content: "Manual E2E: upload image, run OCR, edit text; fix Vite/Tesseract asset paths only if needed."
-    status: pending
+    status: completed
 isProject: false
 ---
 
