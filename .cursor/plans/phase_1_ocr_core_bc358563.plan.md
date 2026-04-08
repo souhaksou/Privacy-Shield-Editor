@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: ui-wire
     content: Add minimal OcrPhase1View (file input, preview, run OCR, textarea) and mount in App or router.
-    status: pending
+    status: completed
   - id: smoke-test
     content: "Manual E2E: upload image, run OCR, edit text; fix Vite/Tesseract asset paths only if needed."
     status: pending

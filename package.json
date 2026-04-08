@@ -19,6 +19,7 @@
     "@vueuse/core": "^14.2.1",
     "pdf-lib": "^1.17.1",
     "pinia": "^3.0.4",
+    "primeicons": "^7.0.0",
     "primevue": "^4.5.4",
     "tailwindcss": "^4.2.2",
     "tesseract.js": "^7.0.0",

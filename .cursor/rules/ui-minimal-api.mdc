@@ -1,0 +1,10 @@
+---
+description: Vue props/emits minimal API
+globs: ["src/components/**/*.vue"]
+alwaysApply: true
+---
+
+- 僅新增當前需求用得到的 props/emits。
+- 若無父層傳入（prop）或監聽（emit），預設移除。
+- 不為「可能未來」先加可選 API；需要時再加。
+- 範例程式碼優先最小可用實作。
