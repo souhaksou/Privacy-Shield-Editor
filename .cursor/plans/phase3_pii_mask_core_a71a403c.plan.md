@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: phase3-map-matches-bboxes
     content: 完成 matches 對應 OCR word bbox 並產生初始 mask rectangles
-    status: pending
+    status: completed
   - id: phase3-store-mask-state
     content: 擴充 document store 的 mask 狀態與 add/remove/reset 操作
     status: pending
