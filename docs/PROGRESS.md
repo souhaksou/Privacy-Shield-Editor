@@ -108,7 +108,7 @@ Use 3-layer canvas:
 
 ## Next Suggested Step
 
-1. implement regex-based PII detection baseline (email/phone/credit card/API key)
+1. implement regex-based PII detection baseline (email/phone/credit card)
 2. map PII matches back to OCR word-level bounding boxes
 3. generate initial mask rectangles from detected matches
 4. add minimal manual mask edit flow (add/remove)

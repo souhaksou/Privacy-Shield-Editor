@@ -177,7 +177,6 @@ Default PII types:
 - email
 - phone
 - credit card
-- API keys
 
 Default masking style:
 
