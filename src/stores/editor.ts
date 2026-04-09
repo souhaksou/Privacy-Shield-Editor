@@ -22,6 +22,12 @@ export const useEditorStore = defineStore("editor", () => {
   /** 送進 worker 的語言碼（例如 eng）；UI 可綁定或覆寫。 */
   const ocrLang = ref("eng");
 
+  /** 是否正在匯出（與 OCR 互斥，避免並行競爭）。 */
+  const isExporting = ref(false);
+
+  /** 最後一次匯出錯誤；新一輪匯出開始時由 `startExport` 清空。 */
+  const exportError = ref<string | null>(null);
+
   /** 是否有可顯示的錯誤（簡化 template 條件）。 */
   const hasOcrError = computed(() => ocrError.value !== null);
 
@@ -80,12 +86,46 @@ export const useEditorStore = defineStore("editor", () => {
     ocrLang.value = lang;
   }
 
+  /**
+   * 開始一輪匯出：標記進行中並清空前次匯出錯誤。
+   */
+  function startExport() {
+    isExporting.value = true;
+    exportError.value = null;
+  }
+
+  /**
+   * 記錄匯出失敗訊息。
+   *
+   * @param message 錯誤說明
+   */
+  function setExportError(message: string) {
+    exportError.value = message;
+  }
+
+  /**
+   * 結束匯出進行狀態（成功或失敗後都應呼叫）。
+   */
+  function finishExport() {
+    isExporting.value = false;
+  }
+
+  /**
+   * 清除匯出錯誤與進行旗標（例如使用者清除文件時）。
+   */
+  function resetExportUiState() {
+    exportError.value = null;
+    isExporting.value = false;
+  }
+
   return {
     isOcrLoading,
     ocrProgress,
     ocrStatus,
     ocrError,
     ocrLang,
+    isExporting,
+    exportError,
     hasOcrError,
     startOcr,
     setOcrProgress,
@@ -93,5 +133,9 @@ export const useEditorStore = defineStore("editor", () => {
     finishOcr,
     resetOcrUiState,
     setOcrLang,
+    startExport,
+    setExportError,
+    finishExport,
+    resetExportUiState,
   };
 });

@@ -3,16 +3,26 @@ import { computed } from "vue";
 import OcrUploadPanel from "@/components/ocr/OcrUploadPanel.vue";
 import OcrImagePreview from "@/components/ocr/OcrImagePreview.vue";
 import OcrRunPanel from "@/components/ocr/OcrRunPanel.vue";
+import OcrExportPanel from "@/components/ocr/OcrExportPanel.vue";
 import OcrTextEditor from "@/components/ocr/OcrTextEditor.vue";
 import { useDocumentStore } from "@/stores/document";
 import { useEditorStore } from "@/stores/editor";
 import { useOcr } from "@/composables/useOcr";
+import { useExport } from "@/composables/useExport";
 
 const documentStore = useDocumentStore();
 const editorStore = useEditorStore();
 const { runOcr } = useOcr();
+const { exportImage, exportPdf } = useExport();
 
-const canRun = computed(() => !!documentStore.imageFile && !editorStore.isOcrLoading);
+const canRun = computed(
+  () => !!documentStore.imageFile && !editorStore.isOcrLoading && !editorStore.isExporting,
+);
+
+const canExport = computed(
+  () =>
+    documentStore.hasImage && !editorStore.isOcrLoading && !editorStore.isExporting,
+);
 
 /**
  * 接收上傳面板選取結果並同步目前文件來源。
@@ -29,7 +39,7 @@ function handleFileSelected(file: File | null) {
  * 當尚未選取影像或 OCR 執行中時直接忽略，避免重複送出造成狀態競爭。
  */
 function handleRunOcr() {
-  if (!documentStore.imageFile || editorStore.isOcrLoading) return;
+  if (!documentStore.imageFile || editorStore.isOcrLoading || editorStore.isExporting) return;
   runOcr(documentStore.imageFile);
 }
 
@@ -39,9 +49,10 @@ function handleRunOcr() {
  * OCR 執行中不允許重置，避免進行中的流程與畫面狀態互相覆蓋。
  */
 function handleClearAll() {
-  if (editorStore.isOcrLoading) return;
+  if (editorStore.isOcrLoading || editorStore.isExporting) return;
   documentStore.clearDocument();
   editorStore.resetOcrUiState();
+  editorStore.resetExportUiState();
 }
 </script>
 
@@ -53,8 +64,8 @@ function handleClearAll() {
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-12">
       <section class="space-y-6 xl:col-span-8">
-        <OcrUploadPanel :disabled="editorStore.isOcrLoading" :can-clear="documentStore.hasImage"
-          @file-selected="handleFileSelected" @clear="handleClearAll" />
+        <OcrUploadPanel :disabled="editorStore.isOcrLoading || editorStore.isExporting"
+          :can-clear="documentStore.hasImage" @file-selected="handleFileSelected" @clear="handleClearAll" />
         <OcrImagePreview :src="documentStore.imageObjectUrl" />
       </section>
 
@@ -64,6 +75,8 @@ function handleClearAll() {
         <OcrTextEditor :model-value="documentStore.correctedText"
           :disabled="editorStore.isOcrLoading || !documentStore.hasOcr"
           @update:model-value="documentStore.setCorrectedText" />
+        <OcrExportPanel :can-export="canExport" :is-exporting="editorStore.isExporting"
+          :error="editorStore.exportError" @export-image="exportImage" @export-pdf="exportPdf" />
       </section>
     </div>
   </main>

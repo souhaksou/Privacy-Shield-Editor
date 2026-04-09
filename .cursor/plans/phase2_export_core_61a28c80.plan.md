@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: composable-export-flow
     content: 建立 useExport 編排流程，串接 blob/pdf bytes 與下載行為，處理 loading/error。
-    status: pending
+    status: completed
   - id: editor-store-export-state
     content: 在 editor store 新增最小必要匯出狀態（isExporting/exportError）。
     status: pending
