@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from "vue-router";
-import OcrFlowView from "@/views/OcrFlowView.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -7,7 +6,7 @@ const router = createRouter({
     {
       path: "/",
       name: "OcrFlow",
-      component: OcrFlowView,
+      component: () => import("@/views/OcrFlowView.vue"),
     },
   ],
 });

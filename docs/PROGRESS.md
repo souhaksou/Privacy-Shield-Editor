@@ -6,7 +6,7 @@ Project is in active implementation stage.
 
 Current goal:
 
-- complete Phase 2 export core (image + PDF baseline)
+- start Phase 3 PII core (regex detection + mask generation baseline)
 
 ---
 
@@ -34,20 +34,31 @@ Current goal:
   - document/editor stores wired
   - minimal OCR UI flow (upload → preview → run OCR → text edit)
   - smoke checks passed (type-check + build)
+- Phase 2 export core:
+  - image export baseline (PNG)
+  - PDF export baseline via pdf-lib (image-based)
+  - export flow composable + editor export UI state
+  - export UI wiring in OCR flow
+  - mutual exclusion guards between OCR and export actions
+  - performance optimization:
+    - route lazy loading for OcrFlowView
+    - dynamic import for pdf-lib during PDF export
+  - validation passed:
+    - type-check passed
+    - build passed
+    - manual E2E passed (upload → OCR → edit → export PNG/PDF)
 
 ---
 
 ## In Progress
 
-- Phase 2 export planning and implementation
+- Phase 3 planning and implementation (PII detection + mask flow)
 
 ---
 
 ## Not Started Yet
 
-- canvas rendering implementation (3-layer canvas full workflow)
-- export pipeline implementation
-- PII detection pipeline
+- Phase 4: canvas rendering implementation (3-layer canvas full workflow)
 
 ---
 
@@ -83,6 +94,7 @@ Use 3-layer canvas:
 1. OCR core
 2. Export
 3. PII masking
+4. Canvas full workflow
 
 ---
 
@@ -96,7 +108,7 @@ Use 3-layer canvas:
 
 ## Next Suggested Step
 
-1. implement image export baseline (combine required layers)
-2. implement PDF export baseline via pdf-lib (image-based first)
-3. wire export actions into current OCR flow UI
-4. run manual E2E: upload → OCR → edit → export image/PDF
+1. implement regex-based PII detection baseline (email/phone/credit card/API key)
+2. map PII matches back to OCR word-level bounding boxes
+3. generate initial mask rectangles from detected matches
+4. add minimal manual mask edit flow (add/remove)

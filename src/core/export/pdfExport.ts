@@ -1,5 +1,3 @@
-import { PDFDocument } from "pdf-lib";
-
 /** 建立 image-based PDF 所需輸入資料（單頁、維持圖片原始比例）。 */
 export interface BuildImagePdfInput {
   imageBytes: Uint8Array;
@@ -16,6 +14,7 @@ export interface BuildImagePdfInput {
  */
 export async function buildImagePdf(input: BuildImagePdfInput): Promise<Uint8Array> {
   const { imageBytes, width, height, format = "png" } = input;
+  const { PDFDocument } = await import("pdf-lib");
 
   if (width <= 0 || height <= 0) {
     throw new Error("Invalid image size for PDF export.");

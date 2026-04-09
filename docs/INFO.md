@@ -248,6 +248,14 @@ PII
 - auto mask generation
 - manual mask editing
 
+### Phase 4
+
+Canvas full workflow
+
+- complete baseCanvas / maskCanvas / uiCanvas interaction flow
+- keep export output as baseCanvas + maskCanvas only
+- keep uiCanvas as interaction-only layer (excluded from export)
+
 Do not implement all phases at once.
 
 ---

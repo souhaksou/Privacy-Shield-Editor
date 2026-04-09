@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: phase2-validation
     content: 執行 type-check/build 與手動 E2E 驗收，確認 PNG/PDF 皆可用。
-    status: pending
+    status: completed
 isProject: false
 ---
 
