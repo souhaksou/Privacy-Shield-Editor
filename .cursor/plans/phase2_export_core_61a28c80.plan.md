@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: ui-export-panel-wire
     content: 新增 OcrExportPanel 並在 OcrFlowView 接線，加入互斥與 disabled 條件。
-    status: pending
+    status: completed
   - id: phase2-validation
     content: 執行 type-check/build 與手動 E2E 驗收，確認 PNG/PDF 皆可用。
     status: pending
