@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: editor-store-export-state
     content: 在 editor store 新增最小必要匯出狀態（isExporting/exportError）。
-    status: pending
+    status: completed
   - id: ui-export-panel-wire
     content: 新增 OcrExportPanel 並在 OcrFlowView 接線，加入互斥與 disabled 條件。
     status: pending
