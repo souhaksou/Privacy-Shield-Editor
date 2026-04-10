@@ -1,3 +1,4 @@
+import { v4 } from "uuid";
 import type { OcrBBox } from "@/types/ocr";
 import type { MappedPiiMatch, MaskRect } from "@/types/mask";
 
@@ -111,6 +112,7 @@ function mergeTwoRects(a: MaskRect, b: MaskRect): MaskRect {
   const bottom = Math.max(a.y + a.height, b.y + b.height);
 
   return {
+    id: v4(),
     x,
     y,
     width: right - x,
@@ -181,6 +183,7 @@ export function buildMaskRects(
     if (union.width < minWidth || union.height < minHeight) continue;
 
     baseRects.push({
+      id: v4(),
       x: union.x,
       y: union.y,
       width: union.width,

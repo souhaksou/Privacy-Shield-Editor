@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: phase3-store-mask-state
     content: 擴充 document store 的 mask 狀態與 add/remove/reset 操作
-    status: pending
+    status: completed
   - id: phase3-composable-flow
     content: 新增 usePiiMask composable 串接 detect/生成/手動編輯流程
     status: pending
@@ -58,6 +58,7 @@ isProject: false
   - 新增型別（PII match、Mask rect、來源標記 auto/manual）：
     - [d:/2026/Privacy-Shield-Editor/src/types/pii.ts](d:/2026/Privacy-Shield-Editor/src/types/pii.ts)
     - [d:/2026/Privacy-Shield-Editor/src/types/mask.ts](d:/2026/Privacy-Shield-Editor/src/types/mask.ts)
+  - **`MaskRect`** 含必填 **`id: string`**（`uuid` 套件 `v4()`）；可選 **`MaskRectInput`**（`id` 可省略）供手動新增，由 store **`addMaskRect`** 自動補 `id`。**合併**出新的幾何時（`buildMaskRects`）**配新 `id`**。**刪除／稍後編輯幾何**以 **`id`** 對齊，不依賴陣列索引。
 - `stores`
   - 擴充文件狀態保存遮罩資料與操作 API：
     - [d:/2026/Privacy-Shield-Editor/src/stores/document.ts](d:/2026/Privacy-Shield-Editor/src/stores/document.ts)

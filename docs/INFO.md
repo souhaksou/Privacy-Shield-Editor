@@ -45,6 +45,7 @@ This project is NOT designed as multiple parallel modes.
 - TailwindCSS
 - Pinia
 - Tesseract.js
+- uuid (client-side mask entry ids)
 - pdf-lib
 - Canvas API
 - Web Worker
@@ -103,7 +104,7 @@ Core document data:
 
 - uploaded image metadata
 - OCR result
-- mask rectangles
+- mask rectangles: geometry in image pixel space (`x`, `y`, `width`, `height`), source (`auto` / `manual`), and a **stable client-side `id`** (string UUID, e.g. v4 via the `uuid` package) so lists can use `:key`, and add / remove / in-place edit target the same logical mask without relying on array index; **`id` is not written into exported PNG/PDF**
 - export-related derived state
 
 ### editor store
@@ -187,6 +188,8 @@ Manual editing should allow:
 - add mask
 - remove mask
 - optional brush masking later
+
+Mask edits should identify rows by **`id`** (not list index) when removing or updating geometry in place; the **`id` stays the same** for the same logical mask unless the UI discards and recreates that entry.
 
 ---
 

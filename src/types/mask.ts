@@ -7,12 +7,17 @@ export type MaskSource = "auto" | "manual";
 
 /** 最終遮罩矩形（以原圖像素座標）。 */
 export interface MaskRect {
+  /** 前端產生的穩定識別（例如 `uuid` v4）；列表 key、刪改時對齊用。 */
+  id: string;
   x: number;
   y: number;
   width: number;
   height: number;
   source: MaskSource;
 }
+
+/** 寫入 store 前可省略 `id`，由 `addMaskRect` 自動補上。 */
+export type MaskRectInput = Omit<MaskRect, "id"> & { id?: string };
 
 /** OCR 單字在全文中的索引範圍。 */
 export interface WordRange {

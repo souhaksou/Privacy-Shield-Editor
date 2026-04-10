@@ -1,9 +1,11 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
+import { v4 } from "uuid";
 import type { OcrResult } from "@/types/ocr";
+import type { MaskRect, MaskRectInput } from "@/types/mask";
 
 /**
- * 文件核心資料 store：上傳圖、OCR 標準化結果、使用者手動修正後的全文。
+ * 文件核心資料 store：上傳圖、OCR 標準化結果、使用者手動修正後的全文、遮罩矩形列表。
  *
  * 與 `editor` store 分離，避免載入中／進度等 UI 狀態混入文件本體。
  */
@@ -20,11 +22,21 @@ export const useDocumentStore = defineStore("document", () => {
   /** Phase 1 手動修正文字；OCR 成功後通常初始化為 `ocrResult.text`，之後與辨識原文可不同步。 */
   const correctedText = ref("");
 
+  /** 目前文件的遮罩矩形（原圖像素座標）；換圖或清除文件時一併清空。 */
+  const maskRects = ref<MaskRect[]>([]);
+
   /** 是否已有可供預覽的圖片 URL。 */
   const hasImage = computed(() => imageObjectUrl.value !== null);
 
   /** 是否已有標準化後的 OCR 結果。 */
   const hasOcr = computed(() => ocrResult.value !== null);
+
+  /** 是否至少有一塊遮罩。 */
+  const hasMasks = computed(() => maskRects.value.length > 0);
+
+  function clearMaskRects() {
+    maskRects.value = [];
+  }
 
   /**
    * 釋放目前持有的 `blob:` 預覽 URL，避免重複換檔仍佔用記憶體。
@@ -39,7 +51,7 @@ export const useDocumentStore = defineStore("document", () => {
   /**
    * 設定（或清除）目前文件圖片。
    *
-   * 換檔時會撤銷舊預覽 URL，並清空 OCR 與修正文字，避免舊結果與新圖並存。
+   * 換檔時會撤銷舊預覽 URL，並清空 OCR、修正文字與遮罩，避免舊結果與新圖並存。
    *
    * @param file 新的圖檔；傳入 null 表示僅清除預覽與關聯狀態
    */
@@ -51,6 +63,7 @@ export const useDocumentStore = defineStore("document", () => {
     }
     ocrResult.value = null;
     correctedText.value = "";
+    clearMaskRects();
   }
 
   /**
@@ -72,13 +85,52 @@ export const useDocumentStore = defineStore("document", () => {
   }
 
   /**
-   * 重設文件狀態：撤銷預覽 URL、清除圖檔與 OCR／修正文字。
+   * 以新陣列取代目前遮罩（例如 PII 偵測完成後寫入整批結果）。
+   *
+   * @param rects 遮罩矩形列表（會複製為新陣列；若缺 `id` 則補上 UUID）
+   */
+  function setMaskRects(rects: MaskRect[]) {
+    maskRects.value = rects.map((r) => ({
+      ...r,
+      id: r.id || v4(),
+    }));
+  }
+
+  /**
+   * 追加一塊遮罩（通常為手動新增）。未提供 `id` 時自動產生。
+   *
+   * @param input 遮罩矩形（`id` 可省略）
+   */
+  function addMaskRect(input: MaskRectInput) {
+    const rect: MaskRect = { ...input, id: input.id || v4() };
+    maskRects.value = [...maskRects.value, rect];
+  }
+
+  /**
+   * 依 `id` 移除一塊遮罩；無符合項時不變更。
+   *
+   * @param id `MaskRect.id`
+   */
+  function removeMaskRect(id: string) {
+    maskRects.value = maskRects.value.filter((r) => r.id !== id);
+  }
+
+  /**
+   * 清空所有遮罩（reset）；換圖／`clearDocument` 時也會呼叫內部邏輯一併清空。
+   */
+  function clearMasks() {
+    clearMaskRects();
+  }
+
+  /**
+   * 重設文件狀態：撤銷預覽 URL、清除圖檔與 OCR／修正文字／遮罩。
    */
   function clearDocument() {
     revokePreviewUrl();
     imageFile.value = null;
     ocrResult.value = null;
     correctedText.value = "";
+    clearMaskRects();
   }
 
   return {
@@ -86,11 +138,17 @@ export const useDocumentStore = defineStore("document", () => {
     imageObjectUrl,
     ocrResult,
     correctedText,
+    maskRects,
     hasImage,
     hasOcr,
+    hasMasks,
     setImageFile,
     setOcrResult,
     setCorrectedText,
+    setMaskRects,
+    addMaskRect,
+    removeMaskRect,
+    clearMasks,
     clearDocument,
   };
 });
