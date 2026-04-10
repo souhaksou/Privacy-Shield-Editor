@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: phase3-ui-wiring
     content: 新增 OcrPiiPanel 並在 OcrFlowView 完成最小 UI 接線
-    status: pending
+    status: completed
   - id: phase3-export-integration
     content: 將 masks 接入 useExport 讓 PNG/PDF 匯出反映遮罩
     status: pending

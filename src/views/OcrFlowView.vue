@@ -1,27 +1,48 @@
 <script setup lang="ts">
+/**
+ * OCR 主流程頁：上傳 → 辨識 → 文字編修 → 可選 PII 遮罩 → 匯出。
+ * PII 操作經子元件 emit 轉呼叫 `usePiiMask`，維持 store / composable 與 UI 分層。
+ */
 import { computed } from "vue";
 import OcrUploadPanel from "@/components/ocr/OcrUploadPanel.vue";
 import OcrImagePreview from "@/components/ocr/OcrImagePreview.vue";
 import OcrRunPanel from "@/components/ocr/OcrRunPanel.vue";
 import OcrExportPanel from "@/components/ocr/OcrExportPanel.vue";
+import OcrPiiPanel from "@/components/ocr/OcrPiiPanel.vue";
 import OcrTextEditor from "@/components/ocr/OcrTextEditor.vue";
 import { useDocumentStore } from "@/stores/document";
 import { useEditorStore } from "@/stores/editor";
 import { useOcr } from "@/composables/useOcr";
 import { useExport } from "@/composables/useExport";
+import { usePiiMask } from "@/composables/usePiiMask";
+import type { MaskRectInput } from "@/types/mask";
 
 const documentStore = useDocumentStore();
 const editorStore = useEditorStore();
 const { runOcr } = useOcr();
 const { exportImage, exportPdf } = useExport();
+const { maskRects, hasOcr, runPiiDetectFromOcr, addMaskRect, removeMaskRect, clearMasks } = usePiiMask();
 
+/**
+ * 是否允許送出 OCR：需已選圖檔，且與匯出互斥，避免並行寫入狀態。
+ */
 const canRun = computed(
   () => !!documentStore.imageFile && !editorStore.isOcrLoading && !editorStore.isExporting,
 );
 
+/**
+ * 是否允許匯出：需有可預覽圖片，且與 OCR 互斥。
+ */
 const canExport = computed(
   () =>
     documentStore.hasImage && !editorStore.isOcrLoading && !editorStore.isExporting,
+);
+
+/**
+ * PII 面板是否整體禁用：OCR 或匯出進行中時關閉，與其他面板 guard 一致。
+ */
+const piiPanelDisabled = computed(
+  () => editorStore.isOcrLoading || editorStore.isExporting,
 );
 
 /**
@@ -54,6 +75,46 @@ function handleClearAll() {
   editorStore.resetOcrUiState();
   editorStore.resetExportUiState();
 }
+
+/**
+ * 觸發 regex PII 偵測並寫入 auto 遮罩（細節見 `usePiiMask`）。
+ *
+ * 於載入或匯出中直接返回，避免與其他流程競爭。
+ */
+function handlePiiDetect() {
+  if (piiPanelDisabled.value) return;
+  runPiiDetectFromOcr();
+}
+
+/**
+ * 清空所有遮罩（含 auto 與 manual）。
+ *
+ * 於載入或匯出中直接返回。
+ */
+function handlePiiClearMasks() {
+  if (piiPanelDisabled.value) return;
+  clearMasks();
+}
+
+/**
+ * 依穩定 `id` 移除單塊遮罩。
+ *
+ * @param id `MaskRect.id`
+ */
+function handlePiiRemoveMask(id: string) {
+  if (piiPanelDisabled.value) return;
+  removeMaskRect(id);
+}
+
+/**
+ * 追加一塊手動遮罩；`id` 由 store 補齊。
+ *
+ * @param input 幾何與來源（通常為 `source: "manual"`）
+ */
+function handlePiiAddManual(input: MaskRectInput) {
+  if (piiPanelDisabled.value) return;
+  addMaskRect(input);
+}
 </script>
 
 <template>
@@ -75,6 +136,8 @@ function handleClearAll() {
         <OcrTextEditor :model-value="documentStore.correctedText"
           :disabled="editorStore.isOcrLoading || !documentStore.hasOcr"
           @update:model-value="documentStore.setCorrectedText" />
+        <OcrPiiPanel :mask-rects="maskRects" :has-ocr="hasOcr" :disabled="piiPanelDisabled" @detect="handlePiiDetect"
+          @clear="handlePiiClearMasks" @remove="handlePiiRemoveMask" @add-manual="handlePiiAddManual" />
         <OcrExportPanel :can-export="canExport" :is-exporting="editorStore.isExporting"
           :error="editorStore.exportError" @export-image="exportImage" @export-pdf="exportPdf" />
       </section>
