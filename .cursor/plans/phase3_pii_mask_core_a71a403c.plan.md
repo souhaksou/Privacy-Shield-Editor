@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: phase3-composable-flow
     content: 新增 usePiiMask composable 串接 detect/生成/手動編輯流程
-    status: pending
+    status: completed
   - id: phase3-ui-wiring
     content: 新增 OcrPiiPanel 並在 OcrFlowView 完成最小 UI 接線
     status: pending
