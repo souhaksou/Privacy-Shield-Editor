@@ -79,28 +79,28 @@ function handleAddManual() {
           x
           <input v-model.number="manualX" type="number" step="1"
             class="w-full rounded border border-gray-300 px-2 py-1 text-sm tabular-nums disabled:bg-gray-100"
-            :disabled="props.disabled" />
+            :disabled="!props.hasOcr || props.disabled" />
         </label>
         <label class="flex flex-col gap-0.5 text-[11px] text-gray-600">
           y
           <input v-model.number="manualY" type="number" step="1"
             class="w-full rounded border border-gray-300 px-2 py-1 text-sm tabular-nums disabled:bg-gray-100"
-            :disabled="props.disabled" />
+            :disabled="!props.hasOcr || props.disabled" />
         </label>
         <label class="flex flex-col gap-0.5 text-[11px] text-gray-600">
           寬
           <input v-model.number="manualWidth" type="number" step="1" min="1"
             class="w-full rounded border border-gray-300 px-2 py-1 text-sm tabular-nums disabled:bg-gray-100"
-            :disabled="props.disabled" />
+            :disabled="!props.hasOcr || props.disabled" />
         </label>
         <label class="flex flex-col gap-0.5 text-[11px] text-gray-600">
           高
           <input v-model.number="manualHeight" type="number" step="1" min="1"
             class="w-full rounded border border-gray-300 px-2 py-1 text-sm tabular-nums disabled:bg-gray-100"
-            :disabled="props.disabled" />
+            :disabled="!props.hasOcr || props.disabled" />
         </label>
       </div>
-      <Button type="button" label="新增遮罩" icon="pi pi-plus" size="small" :disabled="props.disabled"
+      <Button type="button" label="新增遮罩" icon="pi pi-plus" size="small" :disabled="!props.hasOcr || props.disabled"
         @click="handleAddManual" />
     </div>
   </section>

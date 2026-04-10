@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: phase3-validation
     content: 完成 type-check、build 與手動 E2E 驗收
-    status: pending
+    status: completed
 isProject: false
 ---
 

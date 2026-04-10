@@ -6,7 +6,7 @@ Project is in active implementation stage.
 
 Current goal:
 
-- start Phase 3 PII core (regex detection + mask generation baseline)
+- start Phase 4 canvas full workflow baseline (baseCanvas / maskCanvas / uiCanvas)
 
 ---
 
@@ -47,12 +47,33 @@ Current goal:
     - type-check passed
     - build passed
     - manual E2E passed (upload → OCR → edit → export PNG/PDF)
+- Phase 3 PII masking core:
+  - core regex detection baseline completed (email / phone / credit card)
+  - mapping completed: PII matches -> OCR word-level bbox groups
+  - initial auto mask rectangle generation completed
+  - document store mask state completed:
+    - maskRects state
+    - add/remove/reset operations
+    - stable id support for mask entries
+  - composable flow completed:
+    - usePiiMask wired for detect -> map -> build mask
+    - manual add/remove/clear mask actions
+  - minimal UI wiring completed:
+    - OcrPiiPanel added
+    - OcrFlowView event wiring completed
+  - export integration completed:
+    - masks are applied to PNG export
+    - masks are applied to PDF export via shared PNG composition pipeline
+  - validation passed:
+    - type-check passed
+    - build passed
+    - manual E2E passed (upload -> OCR -> detect PII -> add/remove mask -> export PNG/PDF)
 
 ---
 
 ## In Progress
 
-- Phase 3 planning and implementation (PII detection + mask flow)
+- Phase 4 planning and implementation (3-layer canvas full workflow)
 
 ---
 
@@ -108,7 +129,7 @@ Use 3-layer canvas:
 
 ## Next Suggested Step
 
-1. implement regex-based PII detection baseline (email/phone/credit card)
-2. map PII matches back to OCR word-level bounding boxes
-3. generate initial mask rectangles from detected matches
-4. add minimal manual mask edit flow (add/remove)
+1. add baseCanvas/maskCanvas/uiCanvas render skeleton with clear responsibility split
+2. move current mask preview to maskCanvas rendering path (keep output identical)
+3. ensure export still composes baseCanvas + maskCanvas only (exclude uiCanvas)
+4. add minimal uiCanvas interaction layer baseline (selection/hover placeholder)
