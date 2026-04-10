@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: phase3-export-integration
     content: 將 masks 接入 useExport 讓 PNG/PDF 匯出反映遮罩
-    status: pending
+    status: completed
   - id: phase3-validation
     content: 完成 type-check、build 與手動 E2E 驗收
     status: pending

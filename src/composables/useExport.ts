@@ -1,7 +1,9 @@
 import { composeExportCanvas, exportCanvasToPngBlob } from "@/core/export/imageExport";
+import { buildMaskCanvas } from "@/core/export/maskCanvas";
 import { buildImagePdf } from "@/core/export/pdfExport";
 import { useDocumentStore } from "@/stores/document";
 import { useEditorStore } from "@/stores/editor";
+import type { MaskRect } from "@/types/mask";
 
 /**
  * 由完整檔名取得主檔名（移除最後一個副檔名），供下載檔名沿用原名。
@@ -57,11 +59,23 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
  * 從圖檔走與 UI 一致的合成管線，產出 PNG `Blob` 與像素級寬高（PDF 頁面需與此對齊）。
  *
  * @param file 目前文件的圖檔
+ * @param masks 目前文件的遮罩矩形（原圖像素座標）
  * @returns PNG 二進位與圖片寬高（像素）
  */
-async function composePngBlobFromFile(file: File): Promise<{ pngBlob: Blob; width: number; height: number }> {
+async function composePngBlobFromFile(
+  file: File,
+  masks: MaskRect[],
+): Promise<{ pngBlob: Blob; width: number; height: number }> {
   const img = await loadImageFromFile(file);
-  const canvas = composeExportCanvas({ base: img });
+  const mask =
+    masks.length > 0
+      ? buildMaskCanvas({
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+          masks,
+        })
+      : undefined;
+  const canvas = composeExportCanvas({ base: img, mask });
   const pngBlob = await exportCanvasToPngBlob(canvas);
   return { pngBlob, width: img.naturalWidth, height: img.naturalHeight };
 }
@@ -98,7 +112,7 @@ export function useExport() {
 
     editorStore.startExport();
     try {
-      const { pngBlob } = await composePngBlobFromFile(file);
+      const { pngBlob } = await composePngBlobFromFile(file, documentStore.maskRects);
       const outName = `${baseNameFromFileName(file.name)}.png`;
       downloadBlob(pngBlob, outName);
     } catch (e) {
@@ -119,7 +133,7 @@ export function useExport() {
 
     editorStore.startExport();
     try {
-      const { pngBlob, width, height } = await composePngBlobFromFile(file);
+      const { pngBlob, width, height } = await composePngBlobFromFile(file, documentStore.maskRects);
       const buf = await pngBlob.arrayBuffer();
       const imageBytes = new Uint8Array(buf);
       const pdfBytes = await buildImagePdf({ imageBytes, width, height, format: "png" });

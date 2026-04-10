@@ -1,4 +1,4 @@
-/** 組合匯出 canvas 所需來源（MVP 以 base 為主，mask 為可選疊層）。 */
+/** 組合匯出 canvas 所需來源（以 base 為底圖，mask 為可選遮罩疊層）。 */
 export interface ComposeExportCanvasInput {
   base: HTMLImageElement | HTMLCanvasElement;
   mask?: HTMLCanvasElement;
@@ -7,7 +7,7 @@ export interface ComposeExportCanvasInput {
 /**
  * 建立最終匯出的 canvas。
  *
- * MVP 階段先輸出 base，若傳入 mask 則疊加於 base 之上。
+ * 先繪製 `base`，若提供 `mask` 則再以同尺寸疊加，確保 PNG/PDF 共用同一合成結果。
  *
  * @param input 匯出來源設定；`base` 為必要，`mask` 為可選
  * @returns 可直接用於後續 PNG/PDF 匯出的合成 canvas
