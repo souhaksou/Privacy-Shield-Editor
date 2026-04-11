@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: panel-color-controls
     content: 在 OcrPiiPanel 新增每筆遮罩的填色/邊線 color 控制並接線到 OcrFlowView
-    status: pending
+    status: completed
   - id: render-export-color-sync
     content: 同步更新 preview drawMasks 與 export buildMaskCanvas，讓顏色一致套用
     status: pending

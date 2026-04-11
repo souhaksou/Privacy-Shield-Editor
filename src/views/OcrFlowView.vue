@@ -125,7 +125,7 @@ function handlePiiAddManual(input: MaskRectInput) {
 }
 
 /**
- * 就地更新單塊遮罩幾何（canvas 拖曳／縮放）。
+ * 就地更新單塊遮罩（canvas 拖曳／縮放，或 PII 面板的填色／邊線）。
  *
  * @param id `MaskRect.id`
  * @param patch 要合併的欄位
@@ -157,7 +157,8 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
           :disabled="editorStore.isOcrLoading || !documentStore.hasOcr"
           @update:model-value="documentStore.setCorrectedText" />
         <OcrPiiPanel :mask-rects="maskRects" :has-ocr="hasOcr" :disabled="piiPanelDisabled" @detect="handlePiiDetect"
-          @clear="handlePiiClearMasks" @remove="handlePiiRemoveMask" @add-manual="handlePiiAddManual" />
+          @clear="handlePiiClearMasks" @remove="handlePiiRemoveMask" @add-manual="handlePiiAddManual"
+          @update-mask="handlePiiUpdateMask" />
         <OcrExportPanel :can-export="canExport" :is-exporting="editorStore.isExporting"
           :error="editorStore.exportError" @export-image="exportImage" @export-pdf="exportPdf" />
       </section>

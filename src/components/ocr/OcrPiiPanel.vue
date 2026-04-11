@@ -2,7 +2,13 @@
 import { ref } from "vue";
 import Button from "primevue/button";
 import Message from "primevue/message";
-import type { MaskRect, MaskRectInput } from "@/types/mask";
+import {
+  DEFAULT_MASK_FILL_COLOR,
+  DEFAULT_MASK_STROKE_COLOR,
+  type MaskRect,
+  type MaskRectInput,
+  type MaskRectUpdate,
+} from "@/types/mask";
 
 const props = defineProps<{
   maskRects: MaskRect[];
@@ -15,7 +21,21 @@ const emit = defineEmits<{
   (e: "clear"): void;
   (e: "remove", id: string): void;
   (e: "add-manual", input: MaskRectInput): void;
+  (e: "update-mask", id: string, patch: MaskRectUpdate): void;
 }>();
+
+/**
+ * `input[type=color]` 僅穩定支援 #rrggbb；非 hex 時改用對應預設，避免控制項顯示異常。
+ */
+function colorInputValue(css: string, fallback: string): string {
+  const t = css.trim();
+  if (/^#[0-9A-Fa-f]{6}$/i.test(t)) return t.toLowerCase();
+  if (/^#[0-9A-Fa-f]{3}$/i.test(t)) {
+    const [, r, g, b] = t;
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return fallback;
+}
 
 const manualX = ref(0);
 const manualY = ref(0);
@@ -33,6 +53,14 @@ function handleAddManual() {
   if (![x, y, width, height].every((n) => Number.isFinite(n))) return;
   if (width <= 0 || height <= 0) return;
   emit("add-manual", { x, y, width, height, source: "manual" });
+}
+
+function emitFillColor(id: string, value: string) {
+  emit("update-mask", id, { fillColor: value });
+}
+
+function emitStrokeColor(id: string, value: string) {
+  emit("update-mask", id, { strokeColor: value });
 }
 </script>
 
@@ -67,6 +95,20 @@ function handleAddManual() {
         <span class="tabular-nums">
           x{{ Math.round(r.x) }} y{{ Math.round(r.y) }} {{ Math.round(r.width) }}×{{ Math.round(r.height) }}
         </span>
+        <label class="flex items-center gap-1 text-[11px] text-gray-600">
+          填色
+          <input type="color" class="h-7 w-8 cursor-pointer rounded border border-gray-300 bg-white p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+            :value="colorInputValue(r.fillColor, DEFAULT_MASK_FILL_COLOR)" :disabled="props.disabled"
+            :aria-label="`遮罩 ${r.id.slice(0, 8)} 填色`"
+            @input="emitFillColor(r.id, ($event.target as HTMLInputElement).value)" />
+        </label>
+        <label class="flex items-center gap-1 text-[11px] text-gray-600">
+          邊線
+          <input type="color" class="h-7 w-8 cursor-pointer rounded border border-gray-300 bg-white p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+            :value="colorInputValue(r.strokeColor, DEFAULT_MASK_STROKE_COLOR)" :disabled="props.disabled"
+            :aria-label="`遮罩 ${r.id.slice(0, 8)} 邊線色`"
+            @input="emitStrokeColor(r.id, ($event.target as HTMLInputElement).value)" />
+        </label>
         <Button type="button" icon="pi pi-trash" severity="danger" variant="text" rounded :disabled="props.disabled"
           :aria-label="`移除遮罩 ${r.id}`" @click="emit('remove', r.id)" />
       </li>
