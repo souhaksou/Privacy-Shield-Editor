@@ -15,13 +15,21 @@ import { useEditorStore } from "@/stores/editor";
 import { useOcr } from "@/composables/useOcr";
 import { useExport } from "@/composables/useExport";
 import { usePiiMask } from "@/composables/usePiiMask";
-import type { MaskRectInput } from "@/types/mask";
+import type { MaskRectInput, MaskRectUpdate } from "@/types/mask";
 
 const documentStore = useDocumentStore();
 const editorStore = useEditorStore();
 const { runOcr } = useOcr();
 const { exportImage, exportPdf } = useExport();
-const { maskRects, hasOcr, runPiiDetectFromOcr, addMaskRect, removeMaskRect, clearMasks } = usePiiMask();
+const {
+  maskRects,
+  hasOcr,
+  runPiiDetectFromOcr,
+  addMaskRect,
+  updateMaskRectById,
+  removeMaskRect,
+  clearMasks,
+} = usePiiMask();
 
 /**
  * 是否允許送出 OCR：需已選圖檔，且與匯出互斥，避免並行寫入狀態。
@@ -115,6 +123,17 @@ function handlePiiAddManual(input: MaskRectInput) {
   if (piiPanelDisabled.value) return;
   addMaskRect(input);
 }
+
+/**
+ * 就地更新單塊遮罩幾何（canvas 拖曳／縮放）。
+ *
+ * @param id `MaskRect.id`
+ * @param patch 要合併的欄位
+ */
+function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
+  if (piiPanelDisabled.value) return;
+  updateMaskRectById(id, patch);
+}
 </script>
 
 <template>
@@ -128,7 +147,7 @@ function handlePiiAddManual(input: MaskRectInput) {
         <OcrUploadPanel :disabled="editorStore.isOcrLoading || editorStore.isExporting"
           :can-clear="documentStore.hasImage" @file-selected="handleFileSelected" @clear="handleClearAll" />
         <OcrCanvasEditor :image-file="documentStore.imageFile" :masks="maskRects" :disabled="piiPanelDisabled"
-          @add-mask="handlePiiAddManual" />
+          @add-mask="handlePiiAddManual" @update-mask="handlePiiUpdateMask" />
       </section>
 
       <section class="space-y-6 xl:col-span-4">

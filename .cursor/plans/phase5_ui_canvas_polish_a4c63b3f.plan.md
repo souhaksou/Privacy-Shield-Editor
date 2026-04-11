@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: canvas-move-resize
     content: 在 useCanvasEditor 實作既有遮罩 hit-test、拖曳移動、四角縮放與邊界裁切
-    status: pending
+    status: completed
   - id: panel-color-controls
     content: 在 OcrPiiPanel 新增每筆遮罩的填色/邊線 color 控制並接線到 OcrFlowView
     status: pending

@@ -2,7 +2,7 @@
 import { computed, useTemplateRef } from "vue";
 import Message from "primevue/message";
 import { useCanvasEditor } from "@/composables/useCanvasEditor";
-import type { MaskRect, MaskRectInput } from "@/types/mask";
+import type { MaskRect, MaskRectInput, MaskRectUpdate } from "@/types/mask";
 
 const props = defineProps<{
   imageFile: File | null;
@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "add-mask", rect: MaskRectInput): void;
+  (e: "update-mask", id: string, patch: MaskRectUpdate): void;
 }>();
 
 const baseCanvasRef = useTemplateRef<HTMLCanvasElement>("baseCanvas");
@@ -26,6 +27,7 @@ useCanvasEditor({
   masksRef: computed(() => props.masks),
   disabledRef: computed(() => props.disabled),
   onAddMask: (rect) => emit("add-mask", rect),
+  onUpdateMask: (id, patch) => emit("update-mask", id, patch),
 });
 </script>
 
