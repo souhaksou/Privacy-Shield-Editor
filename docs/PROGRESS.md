@@ -6,7 +6,8 @@ Project is in active implementation stage.
 
 Current goal:
 
-- start Phase 4 canvas full workflow baseline (baseCanvas / maskCanvas / uiCanvas)
+- **Next (planned):** improve **overall UI layout** (OCR flow page, panels, preview area) and **canvas behavior** (selection box, related interactions) — current baseline is acceptable functionally but not satisfactory visually or UX-wise.
+- Detailed scope, todos, and acceptance criteria will live in a **new file under `.cursor/plans/`** (to be added next); this PROGRESS entry is the high-level pointer only.
 
 ---
 
@@ -68,18 +69,29 @@ Current goal:
     - type-check passed
     - build passed
     - manual E2E passed (upload -> OCR -> detect PII -> add/remove mask -> export PNG/PDF)
+- Phase 4 canvas full workflow baseline:
+  - `OcrCanvasEditor`: three stacked canvases (baseCanvas / maskCanvas / uiCanvas) for preview
+  - `useCanvasEditor`: base image draw, mask redraw on store changes, display-to-image coords, ui-layer drag box for manual masks
+  - `OcrFlowView`: canvas preview replaces plain `<img>`; `add-mask` wired to `usePiiMask().addMaskRect()`
+  - export unchanged: off-screen `useExport` pipeline (base + off-screen mask only; uiCanvas not in export)
+  - validation passed:
+    - type-check passed
+    - build passed
+    - ESLint passed (`eslint . --max-warnings 0`)
+    - manual E2E passed (upload → OCR → PII detect → canvas box select → export PNG/PDF)
 
 ---
 
 ## In Progress
 
-- Phase 4 planning and implementation (3-layer canvas full workflow)
+- **Queued:** UI + canvas polish phase — not started until the new plan file is written; no architecture change to docs/INFO.md unless layering/export rules change.
 
 ---
 
 ## Not Started Yet
 
-- Phase 4: canvas rendering implementation (3-layer canvas full workflow)
+- Optional: brush masking or richer mask editing (see docs/INFO.md PII / canvas notes)
+- Optional: automated E2E (e.g. Playwright) not in the project yet
 
 ---
 
@@ -129,7 +141,7 @@ Use 3-layer canvas:
 
 ## Next Suggested Step
 
-1. add baseCanvas/maskCanvas/uiCanvas render skeleton with clear responsibility split
-2. move current mask preview to maskCanvas rendering path (keep output identical)
-3. ensure export still composes baseCanvas + maskCanvas only (exclude uiCanvas)
-4. add minimal uiCanvas interaction layer baseline (selection/hover placeholder)
+1. Add a Cursor plan under `.cursor/plans/` (e.g. UI + canvas polish) listing concrete UI complaints, canvas/selection goals, non-goals, and validation steps.
+2. Implement layout changes (likely `OcrFlowView.vue`, OCR sub-panels, preview/canvas container styles) per that plan.
+3. Implement canvas interaction/visual tweaks in `OcrCanvasEditor.vue` / `useCanvasEditor.ts` per that plan (keep export = base + off-screen mask only unless INFO.md is updated).
+4. Later / optional: brush or advanced mask editing as its own scoped phase; optional Playwright E2E for the main path.

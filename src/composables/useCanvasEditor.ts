@@ -79,24 +79,27 @@ function toImageRect(displayRect: DragRect, canvas: HTMLCanvasElement): DragRect
 
 /**
  * 在 uiCanvas 繪製拖曳中的半透明預覽框。
+ * 2D context 使用 bitmap 座標（`canvas.width`/`height`），須先將 `readOffset` 的顯示座標轉成與 `toImageRect` 相同比例。
  *
  * @param canvas uiCanvas
- * @param rect 目前拖曳矩形（display 座標）
+ * @param rect 目前拖曳矩形（相對於 `getBoundingClientRect()` 的顯示座標）
  */
 function drawSelection(canvas: HTMLCanvasElement, rect: DragRect) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (rect.width <= 0 || rect.height <= 0) return;
+  const bitmapRect = toImageRect(rect, canvas);
+  if (bitmapRect.width <= 0 || bitmapRect.height <= 0) return;
   ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
   ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
   ctx.lineWidth = 1;
-  ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+  ctx.fillRect(bitmapRect.x, bitmapRect.y, bitmapRect.width, bitmapRect.height);
   ctx.strokeRect(
-    rect.x + 0.5,
-    rect.y + 0.5,
-    Math.max(0, rect.width - 1),
-    Math.max(0, rect.height - 1),
+    bitmapRect.x + 0.5,
+    bitmapRect.y + 0.5,
+    Math.max(0, bitmapRect.width - 1),
+    Math.max(0, bitmapRect.height - 1),
   );
 }
 

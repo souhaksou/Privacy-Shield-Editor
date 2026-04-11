@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: phase4-validation
     content: type-check / build / 手動 E2E 驗收（上傳→OCR→PII偵測→canvas框選→export PNG/PDF）
-    status: pending
+    status: completed
 isProject: false
 ---
 
