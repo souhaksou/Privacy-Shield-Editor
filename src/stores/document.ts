@@ -2,7 +2,12 @@ import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 import { v4 } from "uuid";
 import type { OcrResult } from "@/types/ocr";
-import type { MaskRect, MaskRectInput } from "@/types/mask";
+import {
+  completeMaskRect,
+  type MaskRect,
+  type MaskRectInput,
+  type MaskRectUpdate,
+} from "@/types/mask";
 
 /**
  * 文件核心資料 store：上傳圖、OCR 標準化結果、使用者手動修正後的全文、遮罩矩形列表。
@@ -90,10 +95,9 @@ export const useDocumentStore = defineStore("document", () => {
    * @param rects 遮罩矩形列表（會複製為新陣列；若缺 `id` 則補上 UUID）
    */
   function setMaskRects(rects: MaskRect[]) {
-    maskRects.value = rects.map((r) => ({
-      ...r,
-      id: r.id || v4(),
-    }));
+    maskRects.value = rects.map((r) =>
+      completeMaskRect({ ...r, id: r.id || v4() }),
+    );
   }
 
   /**
@@ -102,8 +106,25 @@ export const useDocumentStore = defineStore("document", () => {
    * @param input 遮罩矩形（`id` 可省略）
    */
   function addMaskRect(input: MaskRectInput) {
-    const rect: MaskRect = { ...input, id: input.id || v4() };
+    const id = input.id || v4();
+    const rect = completeMaskRect({ ...input, id });
     maskRects.value = [...maskRects.value, rect];
+  }
+
+  /**
+   * 依 `id` 就地合併更新單塊遮罩；無符合項時不變更。
+   *
+   * @param id `MaskRect.id`
+   * @param patch 要合併的欄位（不可改 `id`）
+   */
+  function updateMaskRectById(id: string, patch: MaskRectUpdate) {
+    const idx = maskRects.value.findIndex((r) => r.id === id);
+    if (idx < 0) return;
+    const prev = maskRects.value[idx];
+    if (prev === undefined) return;
+    const merged = { ...prev, ...patch, id: prev.id } as MaskRectInput & { id: string };
+    const next = completeMaskRect(merged);
+    maskRects.value = maskRects.value.map((r, i) => (i === idx ? next : r));
   }
 
   /**
@@ -147,6 +168,7 @@ export const useDocumentStore = defineStore("document", () => {
     setCorrectedText,
     setMaskRects,
     addMaskRect,
+    updateMaskRectById,
     removeMaskRect,
     clearMasks,
     clearDocument,

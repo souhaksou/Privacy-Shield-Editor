@@ -3,7 +3,7 @@ import { detectPii } from "@/core/pii/detect";
 import { mapMatchesToBboxes } from "@/core/pii/mapMatchesToBboxes";
 import { buildMaskRects } from "@/core/mask/buildMaskRects";
 import { useDocumentStore } from "@/stores/document";
-import type { MaskRectInput } from "@/types/mask";
+import type { MaskRectInput, MaskRectUpdate } from "@/types/mask";
 
 /**
  * Phase 3：PII 偵測與遮罩編排（串接 `document` store 與 core 偵測管線）。
@@ -62,6 +62,16 @@ export function usePiiMask() {
     documentStore.removeMaskRect(id);
   }
 
+  /**
+   * 依 `id` 就地更新單塊遮罩（幾何／顏色／來源等）；無符合項時 store 不變。
+   *
+   * @param id `MaskRect.id`
+   * @param patch 要合併的欄位
+   */
+  function updateMaskRectById(id: string, patch: MaskRectUpdate) {
+    documentStore.updateMaskRectById(id, patch);
+  }
+
   /** 清空所有遮罩（含 auto 與 manual）；不影響圖檔與 OCR 結果。 */
   function clearMasks() {
     documentStore.clearMasks();
@@ -73,6 +83,7 @@ export function usePiiMask() {
     hasOcr,
     runPiiDetectFromOcr,
     addMaskRect,
+    updateMaskRectById,
     removeMaskRect,
     clearMasks,
   };

@@ -1,6 +1,11 @@
 import { v4 } from "uuid";
 import type { OcrBBox } from "@/types/ocr";
-import type { MappedPiiMatch, MaskRect } from "@/types/mask";
+import {
+  DEFAULT_MASK_FILL_COLOR,
+  DEFAULT_MASK_STROKE_COLOR,
+  type MappedPiiMatch,
+  type MaskRect,
+} from "@/types/mask";
 
 /** 建立初始遮罩矩形時可調整的幾何參數。 */
 interface BuildMaskRectsOptions {
@@ -118,6 +123,8 @@ function mergeTwoRects(a: MaskRect, b: MaskRect): MaskRect {
     width: right - x,
     height: bottom - y,
     source: "auto",
+    fillColor: DEFAULT_MASK_FILL_COLOR,
+    strokeColor: DEFAULT_MASK_STROKE_COLOR,
   };
 }
 
@@ -189,6 +196,8 @@ export function buildMaskRects(
       width: union.width,
       height: union.height,
       source: "auto",
+      fillColor: DEFAULT_MASK_FILL_COLOR,
+      strokeColor: DEFAULT_MASK_STROKE_COLOR,
     });
   }
 
