@@ -162,6 +162,8 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
   let dragStart: { x: number; y: number } | null = null;
   let isDragging = false;
   let unbindUiEvents: (() => void) | null = null;
+  /** 每次 imageFile 變更時遞增，用來丟棄過期的非同步繪製結果。 */
+  let renderSeq = 0;
 
   /** 清空 uiCanvas 的互動預覽內容。 */
   function clearUiPreview() {
@@ -190,8 +192,9 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
    * 繪製 baseCanvas；無檔案時清空三層畫布。
    *
    * @param file 當前上傳圖片
+   * @param seq 呼叫當下的 renderSeq 快照；loadImage 完成後若序號已過期則放棄寫入。
    */
-  async function renderBase(file: File | null) {
+  async function renderBase(file: File | null, seq: number) {
     if (!file) {
       clearCanvas(input.baseCanvasRef.value);
       clearCanvas(input.maskCanvasRef.value);
@@ -205,6 +208,9 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
     if (!ctx) return;
 
     const img = await loadImage(file);
+    // loadImage 是非同步的，await 結束後再確認序號是否仍為最新，
+    // 若有更新的請求已接手則放棄，避免舊圖覆蓋新圖。
+    if (seq !== renderSeq) return;
     syncAllCanvasSize(img.naturalWidth, img.naturalHeight);
     ctx.clearRect(0, 0, base.width, base.height);
     ctx.drawImage(img, 0, 0, base.width, base.height);
@@ -248,6 +254,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
      */
     const handlePointerDown = (evt: PointerEvent) => {
       if (input.disabledRef.value) return; // 編輯停用時直接略過
+      if (evt.button !== 0) return; // 僅回應主鍵（左鍵 / 觸控主動作 / 手寫筆筆尖）
       dragStart = readOffset(evt); // 記錄起始座標
       isDragging = true;
       canvas.setPointerCapture(evt.pointerId); // 捕捉後續指標事件 (避免離開元素時丟失)
@@ -294,11 +301,24 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
       }
     };
 
-    const handlePointerLeave = () => {
+    const handlePointerLeave = (evt: PointerEvent) => {
       if (!isDragging) {
         clearUiPreview();
         return;
       }
+      if (canvas.hasPointerCapture(evt.pointerId)) {
+        canvas.releasePointerCapture(evt.pointerId);
+      }
+      dragStart = null;
+      isDragging = false;
+      clearUiPreview();
+    };
+
+    /**
+     * 系統中止指標序列（觸控被瀏覽器攔截、Alt+Tab、對話框等）。
+     * 此時不會收到 pointerup，需手動重設狀態並清除預覽。
+     */
+    const handlePointerCancel = () => {
       dragStart = null;
       isDragging = false;
       clearUiPreview();
@@ -308,11 +328,15 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
     canvas.addEventListener("pointermove", handlePointerMove);
     canvas.addEventListener("pointerup", handlePointerUp);
     canvas.addEventListener("pointerleave", handlePointerLeave);
+    canvas.addEventListener("pointercancel", handlePointerCancel);
+    canvas.addEventListener("lostpointercapture", handlePointerCancel);
     unbindUiEvents = () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointermove", handlePointerMove);
       canvas.removeEventListener("pointerup", handlePointerUp);
       canvas.removeEventListener("pointerleave", handlePointerLeave);
+      canvas.removeEventListener("pointercancel", handlePointerCancel);
+      canvas.removeEventListener("lostpointercapture", handlePointerCancel);
     };
   }
 
@@ -324,14 +348,18 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
    */
   watch(
     input.imageFileRef,
-    (file) => {
-      renderBase(file)
-        .then(() => renderMasks(input.masksRef.value))
-        .catch(() => {
-          clearCanvas(input.baseCanvasRef.value);
-          clearCanvas(input.maskCanvasRef.value);
-          clearCanvas(input.uiCanvasRef.value);
-        });
+    async (file) => {
+      const seq = ++renderSeq;
+      try {
+        await renderBase(file, seq);
+        if (seq !== renderSeq) return; // 較新的請求已接手，丟棄此次結果
+        renderMasks(input.masksRef.value);
+      } catch {
+        if (seq !== renderSeq) return;
+        clearCanvas(input.baseCanvasRef.value);
+        clearCanvas(input.maskCanvasRef.value);
+        clearCanvas(input.uiCanvasRef.value);
+      }
     },
     { immediate: true },
   );

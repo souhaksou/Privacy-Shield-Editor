@@ -65,7 +65,6 @@ useCanvasEditor({
   width: 100%;
   height: auto;
   max-height: 24rem;
-  object-fit: contain;
   display: block;
 }
 
@@ -83,6 +82,7 @@ useCanvasEditor({
   z-index: 2;
   pointer-events: auto;
   cursor: crosshair;
+  touch-action: none;
 }
 
 .canvas-ui-disabled {

@@ -7,10 +7,10 @@ todos:
     status: completed
   - id: phase4-composable-base-mask
     content: 新增 useCanvasEditor：renderBase（圖片繪製）+ renderMasks（watch maskRects 自動重繪）+ 座標轉換工具
-    status: pending
+    status: completed
   - id: phase4-ui-interaction
     content: 在 useCanvasEditor 完成 uiCanvas 互動：pointerdown/move/up 拖曳選框、座標轉換為 image pixel、mouseup emit 選取矩形、pointerleave 清空預覽
-    status: pending
+    status: completed
   - id: phase4-view-rewire
     content: OcrFlowView 以 OcrCanvasEditor 取代 OcrImagePreview，傳入 imageFile/masks/disabled，接 add-mask emit 呼叫 usePiiMask().addMaskRect()
     status: pending
