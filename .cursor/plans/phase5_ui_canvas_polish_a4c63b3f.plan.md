@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: ocr-lang-eng-chi-tra-checkbox
     content: OCR 語言複選 checkbox（英文 eng／繁體中文 chi_tra），至少勾選一項；合成 lang 字串（如 eng+chi_tra）寫入 editorStore，接 OcrRunPanel + useOcr 既有介面
-    status: pending
+    status: completed
   - id: layout-polish-ocr-flow
     content: 調整 OcrFlowView + OcrCanvasEditor + OcrPiiPanel 的版面、間距與視覺層次
     status: pending

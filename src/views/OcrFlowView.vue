@@ -142,15 +142,15 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
       <h1 class="text-2xl font-semibold tracking-tight">OCR 流程</h1>
     </div>
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-12">
-      <section class="space-y-6 xl:col-span-8">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <section class="space-y-6">
         <OcrUploadPanel :disabled="editorStore.isOcrLoading || editorStore.isExporting"
           :can-clear="documentStore.hasImage" @file-selected="handleFileSelected" @clear="handleClearAll" />
         <OcrCanvasEditor :image-file="documentStore.imageFile" :masks="maskRects" :disabled="piiPanelDisabled"
           @add-mask="handlePiiAddManual" @update-mask="handlePiiUpdateMask" />
       </section>
 
-      <section class="space-y-6 xl:col-span-4">
+      <section class="space-y-6">
         <OcrRunPanel :can-run="canRun" :is-loading="editorStore.isOcrLoading" :progress="editorStore.ocrProgress"
           :status="editorStore.ocrStatus" :error="editorStore.ocrError" @run="handleRunOcr" />
         <OcrTextEditor :model-value="documentStore.correctedText"
@@ -159,8 +159,8 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
         <OcrPiiPanel :mask-rects="maskRects" :has-ocr="hasOcr" :disabled="piiPanelDisabled" @detect="handlePiiDetect"
           @clear="handlePiiClearMasks" @remove="handlePiiRemoveMask" @add-manual="handlePiiAddManual"
           @update-mask="handlePiiUpdateMask" />
-        <OcrExportPanel :can-export="canExport" :is-exporting="editorStore.isExporting"
-          :error="editorStore.exportError" @export-image="exportImage" @export-pdf="exportPdf" />
+        <OcrExportPanel :can-export="canExport" :is-exporting="editorStore.isExporting" :error="editorStore.exportError"
+          @export-image="exportImage" @export-pdf="exportPdf" />
       </section>
     </div>
   </main>

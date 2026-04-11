@@ -19,8 +19,22 @@ export const useEditorStore = defineStore("editor", () => {
   /** 最後一次 OCR 錯誤訊息；新跑一次開始時會清空。 */
   const ocrError = ref<string | null>(null);
 
-  /** 送進 worker 的語言碼（例如 eng）；UI 可綁定或覆寫。 */
-  const ocrLang = ref("eng");
+  /** 是否將英文 (eng) 納入 OCR 語言組合。 */
+  const ocrIncludeEng = ref(true);
+
+  /** 是否將繁體中文 (chi_tra) 納入 OCR 語言組合。 */
+  const ocrIncludeChiTra = ref(false);
+
+  /**
+   * 送進 worker 的語言碼（固定順序：僅 eng、僅 chi_tra、或 eng+chi_tra）。
+   * 至少一項為 true；若狀態異常則退回 eng。
+   */
+  const ocrLang = computed(() => {
+    const parts: string[] = [];
+    if (ocrIncludeEng.value) parts.push("eng");
+    if (ocrIncludeChiTra.value) parts.push("chi_tra");
+    return parts.length > 0 ? parts.join("+") : "eng";
+  });
 
   /** 是否正在匯出（與 OCR 互斥，避免並行競爭）。 */
   const isExporting = ref(false);
@@ -78,12 +92,23 @@ export const useEditorStore = defineStore("editor", () => {
   }
 
   /**
-   * 設定預設 OCR 語言。
+   * 設定是否包含英文；至少須保留一種語言。
    *
-   * @param lang 語言碼，例如 eng
+   * @param value 是否勾選 eng
    */
-  function setOcrLang(lang: string) {
-    ocrLang.value = lang;
+  function setOcrIncludeEng(value: boolean) {
+    if (!value && !ocrIncludeChiTra.value) return;
+    ocrIncludeEng.value = value;
+  }
+
+  /**
+   * 設定是否包含繁體中文；至少須保留一種語言。
+   *
+   * @param value 是否勾選 chi_tra
+   */
+  function setOcrIncludeChiTra(value: boolean) {
+    if (!value && !ocrIncludeEng.value) return;
+    ocrIncludeChiTra.value = value;
   }
 
   /**
@@ -123,6 +148,8 @@ export const useEditorStore = defineStore("editor", () => {
     ocrProgress,
     ocrStatus,
     ocrError,
+    ocrIncludeEng,
+    ocrIncludeChiTra,
     ocrLang,
     isExporting,
     exportError,
@@ -132,7 +159,8 @@ export const useEditorStore = defineStore("editor", () => {
     setOcrError,
     finishOcr,
     resetOcrUiState,
-    setOcrLang,
+    setOcrIncludeEng,
+    setOcrIncludeChiTra,
     startExport,
     setExportError,
     finishExport,
