@@ -5,7 +5,7 @@
  */
 import { computed } from "vue";
 import OcrUploadPanel from "@/components/ocr/OcrUploadPanel.vue";
-import OcrImagePreview from "@/components/ocr/OcrImagePreview.vue";
+import OcrCanvasEditor from "@/components/ocr/OcrCanvasEditor.vue";
 import OcrRunPanel from "@/components/ocr/OcrRunPanel.vue";
 import OcrExportPanel from "@/components/ocr/OcrExportPanel.vue";
 import OcrPiiPanel from "@/components/ocr/OcrPiiPanel.vue";
@@ -127,7 +127,8 @@ function handlePiiAddManual(input: MaskRectInput) {
       <section class="space-y-6 xl:col-span-8">
         <OcrUploadPanel :disabled="editorStore.isOcrLoading || editorStore.isExporting"
           :can-clear="documentStore.hasImage" @file-selected="handleFileSelected" @clear="handleClearAll" />
-        <OcrImagePreview :src="documentStore.imageObjectUrl" />
+        <OcrCanvasEditor :image-file="documentStore.imageFile" :masks="maskRects" :disabled="piiPanelDisabled"
+          @add-mask="handlePiiAddManual" />
       </section>
 
       <section class="space-y-6 xl:col-span-4">
