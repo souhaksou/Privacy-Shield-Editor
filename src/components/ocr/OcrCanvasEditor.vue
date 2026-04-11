@@ -49,23 +49,27 @@ useCanvasEditor({
 </template>
 
 <style scoped>
+/*
+ * Grid 疊層方案：所有 canvas 共用同一個 grid cell（grid-area: 1/1），
+ * 依 DOM 順序自然疊加（base → mask → ui），stage 高度由 baseCanvas 內容撐開。
+ * max-height + overflow:hidden 限制最大顯示高度，不影響 canvas 像素尺寸，
+ * 因此 toImageRect 的座標轉換仍可正確使用 getBoundingClientRect()。
+ */
 .canvas-stage {
-  position: relative;
+  display: grid;
   width: 100%;
-  min-height: 240px;
+  max-height: 24rem;
+  overflow: hidden;
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.5rem;
-  overflow: hidden;
   background: var(--p-surface-100);
 }
 
 .canvas-layer {
-  position: absolute;
-  inset: 0;
+  grid-area: 1 / 1;
+  display: block;
   width: 100%;
   height: auto;
-  max-height: 24rem;
-  display: block;
 }
 
 .canvas-base {
@@ -87,6 +91,5 @@ useCanvasEditor({
 
 .canvas-ui-disabled {
   pointer-events: none;
-  cursor: not-allowed;
 }
 </style>

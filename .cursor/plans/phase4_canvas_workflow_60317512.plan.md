@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: phase4-view-rewire
     content: OcrFlowView 以 OcrCanvasEditor 取代 OcrImagePreview，傳入 imageFile/masks/disabled，接 add-mask emit 呼叫 usePiiMask().addMaskRect()
-    status: pending
+    status: completed
   - id: phase4-export-verify
     content: 確認匯出管線完全不受影響：useExport 使用 off-screen canvas 路徑，輸出結果與 Phase 3 一致
     status: pending

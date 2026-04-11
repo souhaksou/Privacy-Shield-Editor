@@ -345,6 +345,9 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
    * 1) 重繪 baseCanvas
    * 2) 套用目前遮罩重繪 maskCanvas
    * 失敗時清空三層，避免殘留上一張圖的內容。
+   *
+   * 使用 `flush: 'post'` 確保 Vue 已更新 DOM（v-else 分支中的 canvas 已掛載）後才執行，
+   * 避免 imageFile null→File 時 canvas refs 仍為 null 造成 renderBase 提前返回。
    */
   watch(
     input.imageFileRef,
@@ -361,7 +364,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
         clearCanvas(input.uiCanvasRef.value);
       }
     },
-    { immediate: true },
+    { immediate: true, flush: 'post' },
   );
 
   /** 遮罩清單變更時即時重繪 maskCanvas。 */
