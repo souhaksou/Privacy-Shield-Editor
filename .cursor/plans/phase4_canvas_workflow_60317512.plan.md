@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: phase4-export-verify
     content: 確認匯出管線完全不受影響：useExport 使用 off-screen canvas 路徑，輸出結果與 Phase 3 一致
-    status: pending
+    status: completed
   - id: phase4-validation
     content: type-check / build / 手動 E2E 驗收（上傳→OCR→PII偵測→canvas框選→export PNG/PDF）
     status: pending
