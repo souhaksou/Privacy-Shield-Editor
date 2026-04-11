@@ -1,4 +1,5 @@
 import { onBeforeUnmount, watch, type Ref } from "vue";
+import { paintMaskRectsOnBitmap } from "@/core/export/maskCanvas";
 import type { MaskRect, MaskRectInput, MaskRectUpdate } from "@/types/mask";
 
 /**
@@ -328,7 +329,7 @@ function paintSelectedMaskOverlay(canvas: HTMLCanvasElement, rect: DragRect) {
 }
 
 /**
- * 將遮罩矩形清單繪製到 maskCanvas（黑色矩形）。
+ * 將遮罩矩形清單繪製到 maskCanvas（每筆填色／邊線與匯出 `buildMaskCanvas` 一致）。
  *
  * @param canvas maskCanvas
  * @param masks 遮罩資料（原圖像素座標）
@@ -339,19 +340,7 @@ function drawMasks(canvas: HTMLCanvasElement | null, masks: MaskRect[]) {
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!masks.length) return;
-
-  ctx.fillStyle = "#000000";
-  for (const mask of masks) {
-    if (mask.width <= 0 || mask.height <= 0) continue;
-    const x = Math.max(0, mask.x);
-    const y = Math.max(0, mask.y);
-    const right = Math.min(canvas.width, mask.x + mask.width);
-    const bottom = Math.min(canvas.height, mask.y + mask.height);
-    const w = right - x;
-    const h = bottom - y;
-    if (w <= 0 || h <= 0) continue;
-    ctx.fillRect(x, y, w, h);
-  }
+  paintMaskRectsOnBitmap(ctx, canvas.width, canvas.height, masks);
 }
 
 /**
@@ -380,7 +369,7 @@ async function loadImage(file: File): Promise<HTMLImageElement> {
  * 三層 canvas 預覽編輯：底圖、遮罩層、互動層。
  *
  * - `baseCanvas`：原圖
- * - `maskCanvas`：依 store 遮罩重繪（預覽用填色，與匯出管線分離）
+ * - `maskCanvas`：依 store 遮罩重繪（填色／邊線與匯出遮罩層同一套繪製邏輯）
  * - `uiCanvas`：新建框選、既有遮罩 hit-test、平移與四角縮放；幾何一律換算為原圖像素並裁邊
  *
  * 互動狀態以模組內變數保存（非 `ref`），避免 pointer 高頻事件不必要觸發 Vue 相依更新。
