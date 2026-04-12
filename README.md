@@ -94,6 +94,16 @@ npm run build
 npm run preview
 ```
 
+本機若要模擬 **GitHub Project Pages** 的子路徑（與線上 `base` 一致），可先指定 `VITE_BASE_URL` 再 build + preview，例如倉庫名為 `Privacy-Shield-Editor`：
+
+```bash
+set VITE_BASE_URL=/Privacy-Shield-Editor/
+npm run build
+npm run preview
+```
+
+（PowerShell 可用：`$env:VITE_BASE_URL="/Privacy-Shield-Editor/"; npm run build; npm run preview`）
+
 ### Lint
 
 ```bash
@@ -126,6 +136,22 @@ npm run test
 - OCR 準確率受影像品質影響
 - PII 偵測屬於規則式輔助，仍需人工檢查
 - 目前以影像型 PDF 匯出為主
+
+## GitHub Pages（靜態部署）
+
+此 repo 已包含 **GitHub Actions** workflow：`.github/workflows/deploy-pages.yml`（push 到 `main` 會建置並部署）。
+
+在 **GitHub 網頁** 需完成：
+
+1. 進入 repo → **Settings** → **Pages**
+2. **Build and deployment** → **Source** 選 **GitHub Actions**（不要選「Deploy from a branch」）
+3. 將本次變更 **push 到 `main`**，到 **Actions** 分頁確認 workflow 成功
+4. 成功後在 **Settings → Pages** 會顯示網址，格式通常為：  
+   `https://<你的使用者名>.github.io/<倉庫名>/`
+
+若預設分支不是 `main`，請改 workflow 裡 `on.push.branches`，或把預設分支改成 `main`。
+
+若之後改用 **自訂網域** 且網站掛在網域根路徑，請把 `vite.config.ts` 的 `base` 改為 `"/"` 並調整部署方式（與子路徑不同）。
 
 ## License
 
