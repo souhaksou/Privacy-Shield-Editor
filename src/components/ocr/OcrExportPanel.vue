@@ -16,17 +16,24 @@ const emit = defineEmits<{
 
 <template>
   <section class="space-y-4">
-    <div class="space-y-1">
-      <h2 class="text-base font-semibold tracking-tight">匯出</h2>
-    </div>
-
     <div class="flex flex-wrap gap-2">
-      <Button type="button" label="匯出 PNG" icon="pi pi-image"
-        :disabled="!props.canExport || props.isExporting" :loading="props.isExporting"
-        @click="emit('export-image')" />
-      <Button type="button" label="匯出 PDF" icon="pi pi-file-pdf" severity="secondary"
-        :disabled="!props.canExport || props.isExporting" :loading="props.isExporting"
-        @click="emit('export-pdf')" />
+      <Button
+        type="button"
+        label="匯出 PNG"
+        icon="pi pi-image"
+        :disabled="!props.canExport || props.isExporting"
+        :loading="props.isExporting"
+        @click="emit('export-image')"
+      />
+      <Button
+        type="button"
+        label="匯出 PDF"
+        icon="pi pi-file-pdf"
+        severity="secondary"
+        :disabled="!props.canExport || props.isExporting"
+        :loading="props.isExporting"
+        @click="emit('export-pdf')"
+      />
     </div>
 
     <Message v-if="props.error" severity="error" size="small" variant="simple">

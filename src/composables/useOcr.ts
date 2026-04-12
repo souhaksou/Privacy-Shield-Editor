@@ -117,10 +117,16 @@ export function useOcr() {
    * 送出一輪 OCR。若 `editorStore.isOcrLoading` 已為 true 則直接返回，避免重入。
    *
    * @param image 要辨識的影像資料（例如 `File`／`Blob`）
-   * @param lang 語言碼；省略時使用 editor store 的 `ocrLang`
+   * @param lang 語言碼；省略時使用 editor store 的 `ocrLang`（須非空，否則寫入錯誤並返回）
    */
   function runOcr(image: Blob, lang?: string) {
     if (editorStore.isOcrLoading) return;
+
+    const resolvedLang = (lang ?? editorStore.ocrLang).trim();
+    if (!resolvedLang) {
+      editorStore.setOcrError("請至少選擇一種 OCR 語言。");
+      return;
+    }
 
     attachWorkerIfNeeded();
     if (!worker) return;
@@ -131,7 +137,7 @@ export function useOcr() {
       type: "recognize",
       payload: {
         image,
-        lang: lang ?? editorStore.ocrLang,
+        lang: resolvedLang,
       },
     };
 

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * OCR 主流程頁：上傳 → 辨識 → 文字編修 → 可選 PII 遮罩 → 匯出。
+ * OCR 主流程頁：上傳 → 辨識與文字編修 → 可選 PII 遮罩 → 匯出。
  * PII 操作經子元件 emit 轉呼叫 `usePiiMask`，維持 store / composable 與 UI 分層。
  */
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import OcrUploadPanel from "@/components/ocr/OcrUploadPanel.vue";
 import OcrCanvasEditor from "@/components/ocr/OcrCanvasEditor.vue";
 import OcrRunPanel from "@/components/ocr/OcrRunPanel.vue";
@@ -17,8 +17,22 @@ import { useExport } from "@/composables/useExport";
 import { usePiiMask } from "@/composables/usePiiMask";
 import type { MaskRectInput, MaskRectUpdate } from "@/types/mask";
 
+type PanelKey = "preview" | "s1" | "s2" | "s3";
+
+const expanded = ref<Record<PanelKey, boolean>>({
+  preview: true,
+  s1: true,
+  s2: true,
+  s3: true,
+});
+
+function togglePanel(key: PanelKey) {
+  expanded.value[key] = !expanded.value[key];
+}
+
 const documentStore = useDocumentStore();
 const editorStore = useEditorStore();
+const selectedMaskId = ref<string | null>(null);
 const { runOcr } = useOcr();
 const { exportImage, exportPdf } = useExport();
 const {
@@ -31,105 +45,73 @@ const {
   clearMasks,
 } = usePiiMask();
 
-/**
- * 是否允許送出 OCR：需已選圖檔，且與匯出互斥，避免並行寫入狀態。
- */
 const canRun = computed(
-  () => !!documentStore.imageFile && !editorStore.isOcrLoading && !editorStore.isExporting,
+  () =>
+    !!documentStore.imageFile &&
+    editorStore.hasOcrLangSelection &&
+    !editorStore.isOcrLoading &&
+    !editorStore.isExporting,
 );
 
-/**
- * 是否允許匯出：需有可預覽圖片，且與 OCR 互斥。
- */
 const canExport = computed(
   () =>
     documentStore.hasImage && !editorStore.isOcrLoading && !editorStore.isExporting,
 );
 
-/**
- * PII 面板是否整體禁用：OCR 或匯出進行中時關閉，與其他面板 guard 一致。
- */
 const piiPanelDisabled = computed(
   () => editorStore.isOcrLoading || editorStore.isExporting,
 );
 
-/**
- * 接收上傳面板選取結果並同步目前文件來源。
- *
- * @param file 使用者選取的影像檔；為 `null` 代表清除當前選取
- */
 function handleFileSelected(file: File | null) {
   documentStore.setImageFile(file);
 }
 
-/**
- * 觸發 OCR 執行流程。
- *
- * 當尚未選取影像或 OCR 執行中時直接忽略，避免重複送出造成狀態競爭。
- */
 function handleRunOcr() {
-  if (!documentStore.imageFile || editorStore.isOcrLoading || editorStore.isExporting) return;
+  if (
+    !documentStore.imageFile ||
+    !editorStore.hasOcrLangSelection ||
+    editorStore.isOcrLoading ||
+    editorStore.isExporting
+  ) {
+    return;
+  }
   runOcr(documentStore.imageFile);
 }
 
-/**
- * 清除目前文件與 OCR UI 狀態。
- *
- * OCR 執行中不允許重置，避免進行中的流程與畫面狀態互相覆蓋。
- */
 function handleClearAll() {
   if (editorStore.isOcrLoading || editorStore.isExporting) return;
   documentStore.clearDocument();
   editorStore.resetOcrUiState();
   editorStore.resetExportUiState();
+  selectedMaskId.value = null;
 }
 
-/**
- * 觸發 regex PII 偵測並寫入 auto 遮罩（細節見 `usePiiMask`）。
- *
- * 於載入或匯出中直接返回，避免與其他流程競爭。
- */
+function handleSelectMask(id: string | null) {
+  selectedMaskId.value = id;
+}
+
 function handlePiiDetect() {
   if (piiPanelDisabled.value) return;
   runPiiDetectFromOcr();
 }
 
-/**
- * 清空所有遮罩（含 auto 與 manual）。
- *
- * 於載入或匯出中直接返回。
- */
 function handlePiiClearMasks() {
   if (piiPanelDisabled.value) return;
   clearMasks();
+  selectedMaskId.value = null;
 }
 
-/**
- * 依穩定 `id` 移除單塊遮罩。
- *
- * @param id `MaskRect.id`
- */
 function handlePiiRemoveMask(id: string) {
   if (piiPanelDisabled.value) return;
+  if (selectedMaskId.value === id) selectedMaskId.value = null;
   removeMaskRect(id);
 }
 
-/**
- * 追加一塊手動遮罩；`id` 由 store 補齊。
- *
- * @param input 幾何與來源（通常為 `source: "manual"`）
- */
 function handlePiiAddManual(input: MaskRectInput) {
   if (piiPanelDisabled.value) return;
   addMaskRect(input);
 }
 
-/**
- * 就地更新單塊遮罩（canvas 拖曳／縮放，或 PII 面板的填色／邊線）。
- *
- * @param id `MaskRect.id`
- * @param patch 要合併的欄位
- */
 function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
   if (piiPanelDisabled.value) return;
   updateMaskRectById(id, patch);
@@ -137,31 +119,377 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-7xl px-4 py-6 space-y-6 md:px-6 md:py-8">
-    <div class="space-y-1">
-      <h1 class="text-2xl font-semibold tracking-tight">OCR 流程</h1>
+  <!-- App header bar -->
+  <header class="app-header">
+    <div class="app-header-inner">
+      <span class="brand-tag">PSE</span>
+      <h1 class="brand-name">Privacy Shield Editor</h1>
+      <span class="brand-divider" aria-hidden="true"></span>
+      <span class="brand-sub">文件隱私遮罩工具</span>
     </div>
+  </header>
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      <section class="space-y-6">
-        <OcrUploadPanel :disabled="editorStore.isOcrLoading || editorStore.isExporting"
-          :can-clear="documentStore.hasImage" @file-selected="handleFileSelected" @clear="handleClearAll" />
-        <OcrCanvasEditor :image-file="documentStore.imageFile" :masks="maskRects" :disabled="piiPanelDisabled"
-          @add-mask="handlePiiAddManual" @update-mask="handlePiiUpdateMask" />
+  <main class="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[3fr_2fr] xl:items-start">
+
+      <!-- Left: Workbench (image preview + upload) -->
+      <section class="workbench" :class="{ 'workbench--fill-viewport': expanded.preview }">
+        <div class="workbench-header" @click="togglePanel('preview')">
+          <div class="pane-heading">
+            <span class="section-tag">PREVIEW</span>
+            <span class="section-title">預覽工作台</span>
+          </div>
+          <svg class="collapse-chevron" :class="{ 'is-collapsed': !expanded.preview }" viewBox="0 0 20 20"
+            aria-hidden="true">
+            <path d="M5 8 L10 13 L15 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </div>
+        <Transition name="pane-collapse">
+          <div v-show="expanded.preview" class="pane-collapse-grid workbench-pane-shell">
+            <div class="workbench-body">
+              <div class="workbench-toolbar">
+                <OcrUploadPanel :disabled="editorStore.isOcrLoading || editorStore.isExporting"
+                  :can-clear="documentStore.hasImage" @file-selected="handleFileSelected" @clear="handleClearAll" />
+              </div>
+              <div class="workbench-canvas-slot">
+                <OcrCanvasEditor :image-file="documentStore.imageFile" :masks="maskRects" :disabled="piiPanelDisabled"
+                  :selected-mask-id="selectedMaskId" @add-mask="handlePiiAddManual" @update-mask="handlePiiUpdateMask"
+                  @select-mask="handleSelectMask" />
+              </div>
+            </div>
+          </div>
+        </Transition>
       </section>
 
-      <section class="space-y-6">
-        <OcrRunPanel :can-run="canRun" :is-loading="editorStore.isOcrLoading" :progress="editorStore.ocrProgress"
-          :status="editorStore.ocrStatus" :error="editorStore.ocrError" @run="handleRunOcr" />
-        <OcrTextEditor :model-value="documentStore.correctedText"
-          :disabled="editorStore.isOcrLoading || !documentStore.hasOcr"
-          @update:model-value="documentStore.setCorrectedText" />
-        <OcrPiiPanel :mask-rects="maskRects" :has-ocr="hasOcr" :disabled="piiPanelDisabled" @detect="handlePiiDetect"
-          @clear="handlePiiClearMasks" @remove="handlePiiRemoveMask" @add-manual="handlePiiAddManual"
-          @update-mask="handlePiiUpdateMask" />
-        <OcrExportPanel :can-export="canExport" :is-exporting="editorStore.isExporting" :error="editorStore.exportError"
-          @export-image="exportImage" @export-pdf="exportPdf" />
+      <!-- Right: Step panels -->
+      <section class="space-y-4">
+
+        <!-- Step 01: OCR run + text review -->
+        <div class="step-panel">
+          <div class="step-header" @click="togglePanel('s1')">
+            <div class="pane-heading">
+              <span class="step-num">01</span>
+              <span class="step-title">OCR 與文字校正</span>
+            </div>
+            <svg class="collapse-chevron" :class="{ 'is-collapsed': !expanded.s1 }" viewBox="0 0 20 20"
+              aria-hidden="true">
+              <path d="M5 8 L10 13 L15 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <Transition name="pane-collapse">
+            <div v-show="expanded.s1" class="pane-collapse-grid">
+              <div class="pane-collapse-inner">
+                <div class="step-body flex flex-col gap-4">
+                  <OcrRunPanel :can-run="canRun" :is-loading="editorStore.isOcrLoading" :error="editorStore.ocrError"
+                    @run="handleRunOcr" />
+                  <OcrTextEditor :model-value="documentStore.correctedText"
+                    :disabled="editorStore.isOcrLoading || !documentStore.hasOcr"
+                    @update:model-value="documentStore.setCorrectedText" />
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- Step 02: PII masking -->
+        <div class="step-panel">
+          <div class="step-header" @click="togglePanel('s2')">
+            <div class="pane-heading">
+              <span class="step-num">02</span>
+              <span class="step-title">PII 遮罩</span>
+            </div>
+            <svg class="collapse-chevron" :class="{ 'is-collapsed': !expanded.s2 }" viewBox="0 0 20 20"
+              aria-hidden="true">
+              <path d="M5 8 L10 13 L15 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <Transition name="pane-collapse">
+            <div v-show="expanded.s2" class="pane-collapse-grid">
+              <div class="pane-collapse-inner">
+                <div class="step-body">
+                  <OcrPiiPanel :mask-rects="maskRects" :has-ocr="hasOcr" :disabled="piiPanelDisabled"
+                    :selected-mask-id="selectedMaskId" @detect="handlePiiDetect" @clear="handlePiiClearMasks"
+                    @remove="handlePiiRemoveMask" @add-manual="handlePiiAddManual" @update-mask="handlePiiUpdateMask"
+                    @select-mask="handleSelectMask" />
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- Step 03: Export -->
+        <div class="step-panel">
+          <div class="step-header" @click="togglePanel('s3')">
+            <div class="pane-heading">
+              <span class="step-num">03</span>
+              <span class="step-title">匯出</span>
+            </div>
+            <svg class="collapse-chevron" :class="{ 'is-collapsed': !expanded.s3 }" viewBox="0 0 20 20"
+              aria-hidden="true">
+              <path d="M5 8 L10 13 L15 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <Transition name="pane-collapse">
+            <div v-show="expanded.s3" class="pane-collapse-grid">
+              <div class="pane-collapse-inner">
+                <div class="step-body">
+                  <OcrExportPanel :can-export="canExport" :is-exporting="editorStore.isExporting"
+                    :error="editorStore.exportError" @export-image="exportImage" @export-pdf="exportPdf" />
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
       </section>
     </div>
   </main>
 </template>
+
+<style scoped>
+/* ── App header ── */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--color-pse-surface);
+  border-bottom: 1px solid var(--color-pse-border);
+}
+
+.app-header-inner {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.brand-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  color: var(--color-pse-accent);
+  border: 1px solid var(--color-pse-border);
+  border-radius: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  text-transform: uppercase;
+}
+
+.brand-name {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-pse-text);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.brand-divider {
+  width: 1px;
+  height: 1rem;
+  background: var(--color-pse-border);
+}
+
+.brand-sub {
+  font-size: 0.8rem;
+  color: var(--color-pse-secondary);
+}
+
+/* ── Left: Workbench card ── */
+.workbench {
+  --workbench-viewport-h: calc(100dvh - 8rem);
+
+  background: var(--color-pse-surface);
+  border: 1px solid var(--color-pse-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+@media (min-width: 1280px) {
+  .workbench {
+    max-height: var(--workbench-viewport-h);
+    width: 100%;
+  }
+
+  .workbench.workbench--fill-viewport {
+    min-height: var(--workbench-viewport-h);
+  }
+}
+
+.workbench-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  background: var(--color-pse-raised);
+  border-bottom: 1px solid var(--color-pse-border);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Grid 0fr ↔ 1fr height transition（搭配 <Transition name="pane-collapse"> + v-show） */
+.pane-collapse-grid {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+.pane-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workbench-pane-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 摺疊動畫用 clip；捲動改在 canvas 區，避免與 grid 0fr 衝突 */
+.workbench-pane-shell > .workbench-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pane-collapse-enter-active,
+.pane-collapse-leave-active {
+  overflow: hidden;
+  transition: grid-template-rows 0.22s ease;
+}
+
+.pane-collapse-enter-from,
+.pane-collapse-leave-to {
+  grid-template-rows: 0fr;
+}
+
+.pane-collapse-enter-to,
+.pane-collapse-leave-from {
+  grid-template-rows: 1fr;
+}
+
+.workbench-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.workbench-canvas-slot {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+@media (min-width: 1280px) {
+  .workbench--fill-viewport .workbench-pane-shell {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .workbench-pane-shell > .workbench-body {
+    flex: 1 1 0;
+  }
+
+  .workbench--fill-viewport .workbench-canvas-slot {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .workbench--fill-viewport .workbench-canvas-slot :deep(.ocr-canvas-root) {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .workbench--fill-viewport .workbench-canvas-slot :deep(.canvas-empty) {
+    flex: 1 1 auto;
+    min-height: 18rem;
+  }
+
+  .workbench--fill-viewport .workbench-canvas-slot :deep(.canvas-stage) {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
+.workbench-toolbar {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-pse-border);
+}
+
+/* ── Right: Step panels ── */
+.step-panel {
+  background: var(--color-pse-surface);
+  border: 1px solid var(--color-pse-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  background: var(--color-pse-raised);
+  border-bottom: 1px solid var(--color-pse-border);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pane-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.collapse-chevron {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--color-pse-secondary);
+  transition: transform 0.2s ease;
+}
+
+.collapse-chevron.is-collapsed {
+  transform: scaleY(-1);
+}
+
+.step-num {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--color-pse-accent);
+}
+
+.step-title,
+.section-title {
+  font-family: var(--font-heading);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-pse-text);
+}
+
+.section-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--color-pse-accent);
+}
+
+.step-body {
+  padding: 1rem;
+}
+</style>

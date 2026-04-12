@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+@theme {
+  /* Fonts */
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-heading: 'Space Grotesk', system-ui, sans-serif;
+
+  /* App colour palette */
+  --color-pse-bg: #060e1f;
+  --color-pse-surface: #0d1a2e;
+  --color-pse-raised: #152338;
+  --color-pse-border: #1e3a5f;
+  --color-pse-accent: #38bdf8;
+  --color-pse-text: #e2e8f0;
+  --color-pse-secondary: #94a3b8;
+  --color-pse-muted: #475569;
+}
+
+html,
+body {
+  background-color: var(--color-pse-bg);
+  color: var(--color-pse-text);
+  font-family: var(--font-sans);
+}
+
 img {
   max-width: 100%;
   height: auto;

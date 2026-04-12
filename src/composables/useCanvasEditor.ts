@@ -13,8 +13,10 @@ interface UseCanvasEditorInput {
   imageFileRef: Ref<File | null>;
   masksRef: Ref<MaskRect[]>;
   disabledRef: Ref<boolean>;
+  selectedMaskIdRef: Ref<string | null>;
   onAddMask: (input: MaskRectInput) => void;
   onUpdateMask: (id: string, patch: MaskRectUpdate) => void;
+  onSelectMask: (id: string | null) => void;
 }
 
 /**
@@ -288,15 +290,16 @@ function drawSelection(canvas: HTMLCanvasElement, rect: DragRect) {
 }
 
 /** 角點方塊把手半邊長（bitmap 像素）。 */
-const HANDLE_HALF = 4;
+const HANDLE_HALF = 6;
 
 /**
  * 繪製選中遮罩的邊框與四角實心方塊（已處於 bitmap／原圖像素座標）。
  *
  * @param ctx uiCanvas 2D context
  * @param r 裁切後或預覽中的矩形
+ * @param handleFill 角點填色（動畫期間由呼叫端傳入插值色）
  */
-function drawMaskHandles(ctx: CanvasRenderingContext2D, r: DragRect) {
+function drawMaskHandles(ctx: CanvasRenderingContext2D, r: DragRect, handleFill = "#ffffff") {
   ctx.strokeStyle = "rgba(0, 0, 0, 0.95)";
   ctx.lineWidth = 1;
   ctx.strokeRect(r.x + 0.5, r.y + 0.5, Math.max(0, r.width - 1), Math.max(0, r.height - 1));
@@ -307,7 +310,7 @@ function drawMaskHandles(ctx: CanvasRenderingContext2D, r: DragRect) {
     { x: r.x + r.width, y: r.y + r.height },
     { x: r.x, y: r.y + r.height },
   ];
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = handleFill;
   for (const c of corners) {
     ctx.fillRect(c.x - HANDLE_HALF, c.y - HANDLE_HALF, HANDLE_HALF * 2, HANDLE_HALF * 2);
     ctx.strokeRect(c.x - HANDLE_HALF + 0.5, c.y - HANDLE_HALF + 0.5, HANDLE_HALF * 2 - 1, HANDLE_HALF * 2 - 1);
@@ -319,13 +322,14 @@ function drawMaskHandles(ctx: CanvasRenderingContext2D, r: DragRect) {
  *
  * @param canvas uiCanvas
  * @param rect 原圖像素矩形，與 `canvas` 的 width／height 座標系一致
+ * @param handleFill 角點填色
  */
-function paintSelectedMaskOverlay(canvas: HTMLCanvasElement, rect: DragRect) {
+function paintSelectedMaskOverlay(canvas: HTMLCanvasElement, rect: DragRect, handleFill = "#ffffff") {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (rect.width <= 0 || rect.height <= 0) return;
-  drawMaskHandles(ctx, rect);
+  drawMaskHandles(ctx, rect, handleFill);
 }
 
 /**
@@ -390,8 +394,62 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
   /** 本次 `move`／`resize` 所編輯的 `MaskRect.id`。 */
   let editMaskId: string | null = null;
   let isPointerDown = false;
+  /** pointerdown 時目標是否已在選取狀態；用於判斷 pointerup 無位移時是否切換取消選取。 */
+  let wasAlreadySelected = false;
   let unbindUiEvents: (() => void) | null = null;
   let renderSeq = 0;
+
+  /* ── 角點閃光動畫 ── */
+  /** rAF handle；非 null 表示動畫進行中。 */
+  let flashRafId: number | null = null;
+  /** 動畫起始時間（`performance.now()`）；null 表示不在動畫中。 */
+  let flashStartTime: number | null = null;
+  /** 閃光總時長（ms）。 */
+  const FLASH_DURATION = 500;
+  /** 閃光起始色（黃）。 */
+  const FLASH_FROM: [number, number, number] = [255, 210, 0];
+  /** 閃光終止色（白）。 */
+  const FLASH_TO: [number, number, number] = [255, 255, 255];
+
+  /**
+   * 依目前時間計算角點填色；動畫結束後固定回傳白色。
+   */
+  function currentHandleFill(): string {
+    if (flashStartTime === null) return "#ffffff";
+    const t = Math.min((performance.now() - flashStartTime) / FLASH_DURATION, 1);
+    // ease-out quadratic：快速亮黃 → 緩慢過渡回白
+    const eased = 1 - (1 - t) * (1 - t);
+    const r = Math.round(FLASH_FROM[0] + (FLASH_TO[0] - FLASH_FROM[0]) * eased);
+    const g = Math.round(FLASH_FROM[1] + (FLASH_TO[1] - FLASH_FROM[1]) * eased);
+    const b = Math.round(FLASH_FROM[2] + (FLASH_TO[2] - FLASH_FROM[2]) * eased);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  /**
+   * 啟動角點閃光動畫；若有先前動畫則先取消。
+   * 每一幀呼叫 `refreshUiOverlay`，後者透過 `currentHandleFill` 取得插值色。
+   */
+  function startFlashAnimation() {
+    if (flashRafId !== null) {
+      cancelAnimationFrame(flashRafId);
+      flashRafId = null;
+    }
+    flashStartTime = performance.now();
+
+    function tick() {
+      refreshUiOverlay();
+      const elapsed = performance.now() - (flashStartTime ?? 0);
+      if (elapsed < FLASH_DURATION) {
+        flashRafId = requestAnimationFrame(tick);
+      } else {
+        flashRafId = null;
+        flashStartTime = null;
+        refreshUiOverlay();
+      }
+    }
+
+    flashRafId = requestAnimationFrame(tick);
+  }
 
   /** 清除 uiCanvas 筆觸（含新建預覽與選取疊繪）。 */
   function clearUiPreview() {
@@ -419,7 +477,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
       canvas.width,
       canvas.height,
     );
-    paintSelectedMaskOverlay(canvas, clamped);
+    paintSelectedMaskOverlay(canvas, clamped, currentHandleFill());
   }
 
   /**
@@ -454,6 +512,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
       clearCanvas(input.uiCanvasRef.value);
       selectedId = null;
       interactionMode = "idle";
+      input.onSelectMask(null);
       return;
     }
 
@@ -492,6 +551,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
     resizeCorner = null;
     editMaskId = null;
     isPointerDown = false;
+    wasAlreadySelected = false;
     if (canvas.hasPointerCapture(pointerId)) {
       canvas.releasePointerCapture(pointerId);
     }
@@ -525,6 +585,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
       if (hit.kind === "corner") {
         const m = input.masksRef.value.find((r) => r.id === hit.id);
         if (!m) return;
+        wasAlreadySelected = false;
         selectedId = hit.id;
         editMaskId = hit.id;
         resizeCorner = hit.corner;
@@ -533,16 +594,15 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
         interactionMode = "resize";
         isPointerDown = true;
         canvas.setPointerCapture(evt.pointerId);
-        paintSelectedMaskOverlay(
-          canvas,
-          clampRectToCanvas(initialMaskRect, canvas.width, canvas.height),
-        );
+        input.onSelectMask(hit.id);
+        startFlashAnimation();
         return;
       }
 
       if (hit.kind === "body") {
         const m = input.masksRef.value.find((r) => r.id === hit.id);
         if (!m) return;
+        wasAlreadySelected = selectedId === hit.id;
         selectedId = hit.id;
         editMaskId = hit.id;
         initialMaskRect = { x: m.x, y: m.y, width: m.width, height: m.height };
@@ -550,14 +610,13 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
         interactionMode = "move";
         isPointerDown = true;
         canvas.setPointerCapture(evt.pointerId);
-        paintSelectedMaskOverlay(
-          canvas,
-          clampRectToCanvas(initialMaskRect, canvas.width, canvas.height),
-        );
+        input.onSelectMask(hit.id);
+        if (!wasAlreadySelected) startFlashAnimation();
         return;
       }
 
       selectedId = null;
+      input.onSelectMask(null);
       clearUiPreview();
       interactionMode = "create";
       dragStartDisplay = off;
@@ -566,7 +625,21 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
     };
 
     const handlePointerMove = (evt: PointerEvent) => {
-      if (!isPointerDown) return;
+      if (!isPointerDown) {
+        if (!input.disabledRef.value) {
+          const off = readOffset(evt);
+          const imagePt = toImagePoint(off.x, off.y, canvas);
+          const hit = hitTestMasks(imagePt.x, imagePt.y, input.masksRef.value, canvas);
+          if (hit.kind === "corner") {
+            canvas.style.cursor = `${hit.corner}-resize`;
+          } else if (hit.kind === "body") {
+            canvas.style.cursor = "pointer";
+          } else {
+            canvas.style.cursor = "crosshair";
+          }
+        }
+        return;
+      }
 
       if (interactionMode === "create" && dragStartDisplay) {
         const current = readOffset(evt);
@@ -575,6 +648,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
       }
 
       if (interactionMode === "move" && initialMaskRect && dragStartImage) {
+        canvas.style.cursor = "grabbing";
         const off = readOffset(evt);
         const current = toImagePoint(off.x, off.y, canvas);
         const dx = current.x - dragStartImage.x;
@@ -647,6 +721,9 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
             width: Math.round(next.width),
             height: Math.round(next.height),
           });
+        } else if (wasAlreadySelected) {
+          selectedId = null;
+          input.onSelectMask(null);
         }
         resetInteractionAfterCapture(canvas, evt.pointerId);
         refreshUiOverlay();
@@ -682,6 +759,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
 
     const handlePointerLeave = (evt: PointerEvent) => {
       if (!isPointerDown) {
+        canvas.style.cursor = "crosshair";
         refreshUiOverlay();
         return;
       }
@@ -715,6 +793,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
       resizeCorner = null;
       editMaskId = null;
       isPointerDown = false;
+      canvas.style.cursor = "crosshair";
       refreshUiOverlay();
     };
 
@@ -768,6 +847,7 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
       renderMasks(masks);
       if (selectedId && !masks.some((r) => r.id === selectedId)) {
         selectedId = null;
+        input.onSelectMask(null);
       }
       refreshUiOverlay();
     },
@@ -802,8 +882,23 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
     }
   });
 
+  /**
+   * 外部選取狀態（來自 panel 點選）同步到內部 selectedId；相同值略過以避免不必要的重繪。
+   */
+  watch(input.selectedMaskIdRef, (id) => {
+    if (id !== selectedId) {
+      selectedId = id;
+      if (id !== null) startFlashAnimation();
+      else refreshUiOverlay();
+    }
+  });
+
   /** 元件卸載時解除 uiCanvas 監聽，避免重複掛載或 HMR 時重複綁定。 */
   onBeforeUnmount(() => {
     unbindUiEvents?.();
+    if (flashRafId !== null) {
+      cancelAnimationFrame(flashRafId);
+      flashRafId = null;
+    }
   });
 }

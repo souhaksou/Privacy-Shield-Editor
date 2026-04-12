@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: layout-polish-ocr-flow
     content: 調整 OcrFlowView + OcrCanvasEditor + OcrPiiPanel 的版面、間距與視覺層次
-    status: pending
+    status: completed
   - id: validation-pass
     content: 執行 type-check/build/eslint 與手動 E2E 驗收（含 OCR 語言複選、move/resize、color、export）
     status: pending

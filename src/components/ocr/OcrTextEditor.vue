@@ -17,11 +17,14 @@ function handleInput(event: Event) {
 </script>
 
 <template>
-  <section class="space-y-4">
-    <div class="space-y-1">
-      <h2 class="text-base font-semibold tracking-tight">OCR 文字</h2>
-    </div>
-    <Textarea :value="props.modelValue" :disabled="props.disabled" rows="12" class="w-full h-96 max-h-96"
-      placeholder="OCR 結果會顯示在這裡..." @input="handleInput" />
+  <section class="space-y-3">
+    <Textarea
+      :value="props.modelValue"
+      :disabled="props.disabled"
+      rows="12"
+      class="w-full h-72 font-mono text-sm"
+      placeholder="OCR 結果會顯示在這裡..."
+      @input="handleInput"
+    />
   </section>
 </template>
