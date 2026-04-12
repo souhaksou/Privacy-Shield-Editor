@@ -81,12 +81,19 @@ export async function disposeOcrWorker(timeoutMs = 800): Promise<void> {
     const request: OcrWorkerRequest = { type: "dispose" };
     currentWorker.postMessage(request);
 
+    let timedOut = false;
     await Promise.race([
       disposedAck,
       new Promise<void>((resolve) => {
-        window.setTimeout(resolve, timeoutMs);
+        window.setTimeout(() => {
+          timedOut = true;
+          resolve();
+        }, timeoutMs);
       }),
     ]);
+    if (timedOut && import.meta.env.DEV) {
+      console.warn(`[useOcr] disposeOcrWorker: worker did not ack within ${timeoutMs}ms, forcing terminate.`);
+    }
   } finally {
     currentWorker.terminate();
     if (worker === currentWorker) {

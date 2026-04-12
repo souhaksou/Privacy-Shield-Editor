@@ -37,19 +37,34 @@ export type MaskRectInput = Omit<MaskRect, "id" | "fillColor" | "strokeColor"> &
 export type MaskRectUpdate = Partial<Omit<MaskRect, "id">>;
 
 /**
+ * 顏色欄位解析：空白或未定義時回退預設色，避免多處各自處理 fallback 規則。
+ *
+ * @param fillColor 填色字串（可 undefined 或空白）
+ * @param strokeColor 邊線色字串（可 undefined 或空白）
+ */
+export function resolveMaskColors(
+  fillColor: string | undefined,
+  strokeColor: string | undefined,
+): { fill: string; stroke: string } {
+  return {
+    fill:
+      fillColor !== undefined && fillColor.trim() !== ""
+        ? fillColor
+        : DEFAULT_MASK_FILL_COLOR,
+    stroke:
+      strokeColor !== undefined && strokeColor.trim() !== ""
+        ? strokeColor
+        : DEFAULT_MASK_STROKE_COLOR,
+  };
+}
+
+/**
  * 將輸入補齊為完整 `MaskRect`（缺漏或僅空白字串的顏色改用預設值）。
  *
  * @param input 已含穩定 `id` 的遮罩資料
  */
 export function completeMaskRect(input: MaskRectInput & { id: string }): MaskRect {
-  const fill =
-    input.fillColor !== undefined && input.fillColor.trim() !== ""
-      ? input.fillColor
-      : DEFAULT_MASK_FILL_COLOR;
-  const stroke =
-    input.strokeColor !== undefined && input.strokeColor.trim() !== ""
-      ? input.strokeColor
-      : DEFAULT_MASK_STROKE_COLOR;
+  const { fill, stroke } = resolveMaskColors(input.fillColor, input.strokeColor);
 
   return {
     id: input.id,
@@ -62,6 +77,7 @@ export function completeMaskRect(input: MaskRectInput & { id: string }): MaskRec
     strokeColor: stroke,
   };
 }
+
 
 /** OCR 單字在全文中的索引範圍。 */
 export interface WordRange {

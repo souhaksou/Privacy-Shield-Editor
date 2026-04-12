@@ -1,6 +1,16 @@
 import { onBeforeUnmount, watch, type Ref } from "vue";
 import { paintMaskRectsOnBitmap } from "@/core/export/maskCanvas";
 import type { MaskRect, MaskRectInput, MaskRectUpdate } from "@/types/mask";
+import {
+  MIN_MASK_PX,
+  normalizeDragRect,
+  clampRectToCanvas,
+  rectFromCornerDrag,
+  anchorForCornerRect,
+  type DragRect,
+  type ResizeCorner,
+} from "@/core/canvas/geometry";
+import { toImageRect, toImagePoint, hitTestMasks } from "@/lib/canvasCoords";
 
 /**
  * 呼叫 `useCanvasEditor` 時由元件傳入的依賴：三層 canvas ref、圖檔與遮罩來源、
@@ -20,248 +30,33 @@ interface UseCanvasEditorInput {
 }
 
 /**
- * 軸對齊矩形；座標空間與呼叫處一致（原圖像素／canvas bitmap 寬高與原圖相同）。
- */
-interface DragRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/** 正在拖曳的矩形角（羅盤方位），用於縮放時選擇對角錨點。 */
-type ResizeCorner = "nw" | "ne" | "se" | "sw";
-
-/**
  * uiCanvas 上的互動階段：未命中既有遮罩時進入 `create`，否則為 `move` 或 `resize`。
  */
 type InteractionMode = "idle" | "create" | "move" | "resize";
 
-/**
- * 單次 hit-test 結果；同一遮罩先判四角再判本體，避免把手區被誤判成平移。
- */
-type HitResult =
-  | { kind: "none" }
-  | { kind: "corner"; id: string; corner: ResizeCorner }
-  | { kind: "body"; id: string };
-
-/** 遮罩最小寬高（原圖像素），與新建框「過小不寫入」門檻對齊。 */
-const MIN_MASK_PX = 2;
-/**
- * 角點命中半徑的 CSS 像素基準；會再換算成 image 空間，以兼顧縮放顯示與觸控。
- */
-const HANDLE_SLOP_DISPLAY = 8;
+/** 新建框選填色（半透明黑）。 */
+const SELECTION_FILL = "rgba(0, 0, 0, 0.2)";
+/** 新建框選邊線色。 */
+const SELECTION_STROKE = "rgba(0, 0, 0, 0.9)";
+/** 選取框與把手邊線色。 */
+const HANDLE_STROKE = "rgba(0, 0, 0, 0.95)";
+/** 角點方塊把手半邊長（bitmap 像素）。 */
+const HANDLE_HALF = 6;
+/** 閃光總時長（ms）。 */
+const FLASH_DURATION = 500;
+/** 閃光起始色（黃）。 */
+const FLASH_FROM: [number, number, number] = [255, 210, 0];
+/** 閃光終止色（白）。 */
+const FLASH_TO: [number, number, number] = [255, 255, 255];
 
 /**
  * 清空指定 canvas 內容；若 canvas 或 2D context 不可用則略過。
- *
- * @param canvas 目標畫布
  */
 function clearCanvas(canvas: HTMLCanvasElement | null) {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
-
-/**
- * 將任意拖曳方向正規化為「左上角 + 寬高」矩形。
- *
- * @param startX 拖曳起點 X
- * @param startY 拖曳起點 Y
- * @param endX 拖曳終點 X
- * @param endY 拖曳終點 Y
- * @returns 正規化後矩形
- */
-function normalizeDragRect(startX: number, startY: number, endX: number, endY: number): DragRect {
-  const left = Math.min(startX, endX);
-  const top = Math.min(startY, endY);
-  const right = Math.max(startX, endX);
-  const bottom = Math.max(startY, endY);
-  return { x: left, y: top, width: right - left, height: bottom - top };
-}
-
-/**
- * 將 display 座標矩形轉為原圖像素座標。
- *
- * `uiCanvas` 在畫面上可能因 CSS 縮放而與實際 canvas 寬高不同，
- * 因此需以 `getBoundingClientRect()` 與 canvas 實際像素尺寸計算比例。
- *
- * @param displayRect 畫面座標矩形
- * @param canvas 互動圖層 canvas
- * @returns 轉換後的 image pixel 矩形
- */
-function toImageRect(displayRect: DragRect, canvas: HTMLCanvasElement): DragRect {
-  const bounds = canvas.getBoundingClientRect();
-  if (bounds.width <= 0 || bounds.height <= 0) {
-    return { x: 0, y: 0, width: 0, height: 0 };
-  }
-  const scaleX = canvas.width / bounds.width;
-  const scaleY = canvas.height / bounds.height;
-  return {
-    x: displayRect.x * scaleX,
-    y: displayRect.y * scaleY,
-    width: displayRect.width * scaleX,
-    height: displayRect.height * scaleY,
-  };
-}
-
-/**
- * 將單點 display 座標轉為原圖像素座標（與 `toImageRect` 相同比例假設）。
- *
- * @param displayX 相對於 `getBoundingClientRect().left` 的 X
- * @param displayY 相對於 `getBoundingClientRect().top` 的 Y
- * @param canvas 互動圖層 canvas
- * @returns 原圖像素座標；layout 異常時為 `(0,0)`
- */
-function toImagePoint(displayX: number, displayY: number, canvas: HTMLCanvasElement): { x: number; y: number } {
-  const bounds = canvas.getBoundingClientRect();
-  if (bounds.width <= 0 || bounds.height <= 0) {
-    return { x: 0, y: 0 };
-  }
-  const scaleX = canvas.width / bounds.width;
-  const scaleY = canvas.height / bounds.height;
-  return { x: displayX * scaleX, y: displayY * scaleY };
-}
-
-/**
- * 將角點命中容差從「螢幕約略像素」換算為與 `MaskRect` 相同的 image 像素半徑。
- *
- * @param canvas 互動圖層，用於讀取 layout 與 bitmap 比例
- * @returns 換算後半徑；layout 異常時回退常數避免除零
- */
-function hitSlopImage(canvas: HTMLCanvasElement): number {
-  const bounds = canvas.getBoundingClientRect();
-  if (bounds.width <= 0 || bounds.height <= 0) return 8;
-  const scaleX = canvas.width / bounds.width;
-  const scaleY = canvas.height / bounds.height;
-  return Math.max(HANDLE_SLOP_DISPLAY * scaleX, HANDLE_SLOP_DISPLAY * scaleY);
-}
-
-/**
- * 兩點距離平方；hit-test 與半徑比較時避免開根號。
- *
- * @returns 歐氏距離的平方 `(ax-bx)² + (ay-by)²`
- */
-function dist2(ax: number, ay: number, bx: number, by: number): number {
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-}
-
-/**
- * 將矩形限制在畫布範圍內，並保證寬高不小於 `MIN_MASK_PX`。
- * 多次 min/max 是為了在「先放大再平移」等組合下仍收斂到合法解。
- *
- * @param r 原圖像素矩形
- * @param cw 畫布寬（與原圖寬一致）
- * @param ch 畫布高（與原圖高一致）
- * @returns 裁切後矩形
- */
-function clampRectToCanvas(r: DragRect, cw: number, ch: number): DragRect {
-  let x = r.x;
-  let y = r.y;
-  let w = r.width;
-  let h = r.height;
-
-  if (w < MIN_MASK_PX) w = MIN_MASK_PX;
-  if (h < MIN_MASK_PX) h = MIN_MASK_PX;
-
-  x = Math.min(Math.max(x, 0), cw - w);
-  y = Math.min(Math.max(y, 0), ch - h);
-
-  w = Math.min(w, cw - x);
-  h = Math.min(h, ch - y);
-
-  w = Math.max(w, MIN_MASK_PX);
-  h = Math.max(h, MIN_MASK_PX);
-  x = Math.min(Math.max(x, 0), cw - w);
-  y = Math.min(Math.max(y, 0), ch - h);
-
-  return { x, y, width: w, height: h };
-}
-
-/**
- * 依固定對角錨點 `(ax,ay)` 與目前指標 `(px,py)` 產生軸對齊外接矩形（原圖像素）。
- * `ne`／`se` 共用同一正規化式，差異來自呼叫端傳入的錨點座標。
- *
- * @param corner 正在拖曳的角
- * @param ax 錨點 X（對角固定點）
- * @param ay 錨點 Y
- * @param px 指標 X
- * @param py 指標 Y
- * @returns 正規化後左上角＋寬高
- */
-function rectFromCornerDrag(corner: ResizeCorner, ax: number, ay: number, px: number, py: number): DragRect {
-  switch (corner) {
-    case "nw":
-      return normalizeDragRect(px, py, ax, ay);
-    case "ne":
-    case "se":
-      return normalizeDragRect(ax, ay, px, py);
-    case "sw":
-      return normalizeDragRect(px, py, ax, ay);
-    default:
-      return normalizeDragRect(px, py, ax, ay);
-  }
-}
-
-/**
- * 拖曳 `corner` 時應保持固定的對角頂點（原圖像素），供縮放幾何錨定。
- *
- * @param r 按下指標當下的矩形快照（通常為 `initialMaskRect`）
- * @param corner 正在拖曳的角
- * @returns 對角錨點座標
- */
-function anchorForCornerRect(r: DragRect, corner: ResizeCorner): { x: number; y: number } {
-  const { x, y, width: w, height: h } = r;
-  switch (corner) {
-    case "nw":
-      return { x: x + w, y: y + h };
-    case "ne":
-      return { x, y: y + h };
-    case "se":
-      return { x, y };
-    case "sw":
-      return { x: x + w, y };
-    default:
-      return { x, y };
-  }
-}
-
-/**
- * 以原圖像素座標對既有遮罩做 hit-test；陣列末尾者優先（視覺上較上層）。
- *
- * @param ix 指標 X（原圖像素）
- * @param iy 指標 Y（原圖像素）
- * @param masks 目前遮罩清單
- * @param canvas 用於換算角點命中容差
- * @returns 命中角、命中本體或未命中
- */
-function hitTestMasks(ix: number, iy: number, masks: MaskRect[], canvas: HTMLCanvasElement): HitResult {
-  const slop2 = hitSlopImage(canvas) ** 2;
-  for (let i = masks.length - 1; i >= 0; i--) {
-    const m = masks[i];
-    if (!m || m.width <= 0 || m.height <= 0) continue;
-    const { x, y, width: w, height: h } = m;
-
-    const corners: { corner: ResizeCorner; cx: number; cy: number }[] = [
-      { corner: "nw", cx: x, cy: y },
-      { corner: "ne", cx: x + w, cy: y },
-      { corner: "se", cx: x + w, cy: y + h },
-      { corner: "sw", cx: x, cy: y + h },
-    ];
-    for (const { corner, cx, cy } of corners) {
-      if (dist2(ix, iy, cx, cy) <= slop2) {
-        return { kind: "corner", id: m.id, corner };
-      }
-    }
-
-    if (ix >= x && ix <= x + w && iy >= y && iy <= y + h) {
-      return { kind: "body", id: m.id };
-    }
-  }
-  return { kind: "none" };
 }
 
 /**
@@ -277,8 +72,8 @@ function drawSelection(canvas: HTMLCanvasElement, rect: DragRect) {
   if (rect.width <= 0 || rect.height <= 0) return;
   const bitmapRect = toImageRect(rect, canvas);
   if (bitmapRect.width <= 0 || bitmapRect.height <= 0) return;
-  ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+  ctx.fillStyle = SELECTION_FILL;
+  ctx.strokeStyle = SELECTION_STROKE;
   ctx.lineWidth = 1;
   ctx.fillRect(bitmapRect.x, bitmapRect.y, bitmapRect.width, bitmapRect.height);
   ctx.strokeRect(
@@ -289,9 +84,6 @@ function drawSelection(canvas: HTMLCanvasElement, rect: DragRect) {
   );
 }
 
-/** 角點方塊把手半邊長（bitmap 像素）。 */
-const HANDLE_HALF = 6;
-
 /**
  * 繪製選中遮罩的邊框與四角實心方塊（已處於 bitmap／原圖像素座標）。
  *
@@ -300,7 +92,7 @@ const HANDLE_HALF = 6;
  * @param handleFill 角點填色（動畫期間由呼叫端傳入插值色）
  */
 function drawMaskHandles(ctx: CanvasRenderingContext2D, r: DragRect, handleFill = "#ffffff") {
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.95)";
+  ctx.strokeStyle = HANDLE_STROKE;
   ctx.lineWidth = 1;
   ctx.strokeRect(r.x + 0.5, r.y + 0.5, Math.max(0, r.width - 1), Math.max(0, r.height - 1));
 
@@ -404,13 +196,6 @@ export function useCanvasEditor(input: UseCanvasEditorInput) {
   let flashRafId: number | null = null;
   /** 動畫起始時間（`performance.now()`）；null 表示不在動畫中。 */
   let flashStartTime: number | null = null;
-  /** 閃光總時長（ms）。 */
-  const FLASH_DURATION = 500;
-  /** 閃光起始色（黃）。 */
-  const FLASH_FROM: [number, number, number] = [255, 210, 0];
-  /** 閃光終止色（白）。 */
-  const FLASH_TO: [number, number, number] = [255, 255, 255];
-
   /**
    * 依目前時間計算角點填色；動畫結束後固定回傳白色。
    */

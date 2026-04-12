@@ -10,6 +10,7 @@ import OcrRunPanel from "@/components/ocr/OcrRunPanel.vue";
 import OcrExportPanel from "@/components/ocr/OcrExportPanel.vue";
 import OcrPiiPanel from "@/components/ocr/OcrPiiPanel.vue";
 import OcrTextEditor from "@/components/ocr/OcrTextEditor.vue";
+import CollapseChevron from "@/components/ui/CollapseChevron.vue";
 import { useDocumentStore } from "@/stores/document";
 import { useEditorStore } from "@/stores/editor";
 import { useOcr } from "@/composables/useOcr";
@@ -53,14 +54,10 @@ const canRun = computed(
     !editorStore.isExporting,
 );
 
-const canExport = computed(
-  () =>
-    documentStore.hasImage && !editorStore.isOcrLoading && !editorStore.isExporting,
-);
+/** 任何阻塞操作（OCR 或匯出）進行中時為 true，所有互動一律停用。 */
+const isBusy = computed(() => editorStore.isOcrLoading || editorStore.isExporting);
 
-const piiPanelDisabled = computed(
-  () => editorStore.isOcrLoading || editorStore.isExporting,
-);
+const canExport = computed(() => documentStore.hasImage && !isBusy.value);
 
 function handleFileSelected(file: File | null) {
   documentStore.setImageFile(file);
@@ -79,7 +76,7 @@ function handleRunOcr() {
 }
 
 function handleClearAll() {
-  if (editorStore.isOcrLoading || editorStore.isExporting) return;
+  if (isBusy.value) return;
   documentStore.clearDocument();
   editorStore.resetOcrUiState();
   editorStore.resetExportUiState();
@@ -91,35 +88,35 @@ function handleSelectMask(id: string | null) {
 }
 
 function handlePiiDetect() {
-  if (piiPanelDisabled.value) return;
+  if (isBusy.value) return;
   runPiiDetectFromOcr();
 }
 
 function handlePiiClearMasks() {
-  if (piiPanelDisabled.value) return;
+  if (isBusy.value) return;
   clearMasks();
   selectedMaskId.value = null;
 }
 
 function handlePiiRemoveMask(id: string) {
-  if (piiPanelDisabled.value) return;
+  if (isBusy.value) return;
   if (selectedMaskId.value === id) selectedMaskId.value = null;
   removeMaskRect(id);
 }
 
 function handlePiiAddManual(input: MaskRectInput) {
-  if (piiPanelDisabled.value) return;
+  if (isBusy.value) return;
   addMaskRect(input);
 }
 
 function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
-  if (piiPanelDisabled.value) return;
+  if (isBusy.value) return;
   updateMaskRectById(id, patch);
 }
 </script>
 
 <template>
-  <!-- App header bar -->
+  <!-- 頂部應用程式標題列 -->
   <header class="app-header">
     <div class="app-header-inner">
       <span class="brand-tag">PSE</span>
@@ -132,28 +129,24 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
   <main class="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[3fr_2fr] xl:items-start">
 
-      <!-- Left: Workbench (image preview + upload) -->
+      <!-- 左欄：工作台（圖片預覽 + 上傳） -->
       <section class="workbench" :class="{ 'workbench--fill-viewport': expanded.preview }">
         <div class="workbench-header" @click="togglePanel('preview')">
           <div class="pane-heading">
             <span class="section-tag">PREVIEW</span>
             <span class="section-title">預覽工作台</span>
           </div>
-          <svg class="collapse-chevron" :class="{ 'is-collapsed': !expanded.preview }" viewBox="0 0 20 20"
-            aria-hidden="true">
-            <path d="M5 8 L10 13 L15 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-              stroke-linejoin="round" />
-          </svg>
+          <CollapseChevron :collapsed="!expanded.preview" />
         </div>
         <Transition name="pane-collapse">
           <div v-show="expanded.preview" class="pane-collapse-grid workbench-pane-shell">
             <div class="workbench-body">
               <div class="workbench-toolbar">
-                <OcrUploadPanel :disabled="editorStore.isOcrLoading || editorStore.isExporting"
+                <OcrUploadPanel :disabled="isBusy"
                   :can-clear="documentStore.hasImage" @file-selected="handleFileSelected" @clear="handleClearAll" />
               </div>
               <div class="workbench-canvas-slot">
-                <OcrCanvasEditor :image-file="documentStore.imageFile" :masks="maskRects" :disabled="piiPanelDisabled"
+                <OcrCanvasEditor :image-file="documentStore.imageFile" :masks="maskRects" :disabled="isBusy"
                   :selected-mask-id="selectedMaskId" @add-mask="handlePiiAddManual" @update-mask="handlePiiUpdateMask"
                   @select-mask="handleSelectMask" />
               </div>
@@ -162,21 +155,17 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
         </Transition>
       </section>
 
-      <!-- Right: Step panels -->
+      <!-- 右欄：步驟面板 -->
       <section class="space-y-4">
 
-        <!-- Step 01: OCR run + text review -->
+        <!-- 步驟 01：OCR 執行與文字校正 -->
         <div class="step-panel">
           <div class="step-header" @click="togglePanel('s1')">
             <div class="pane-heading">
               <span class="step-num">01</span>
               <span class="step-title">OCR 與文字校正</span>
             </div>
-            <svg class="collapse-chevron" :class="{ 'is-collapsed': !expanded.s1 }" viewBox="0 0 20 20"
-              aria-hidden="true">
-              <path d="M5 8 L10 13 L15 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
+            <CollapseChevron :collapsed="!expanded.s1" />
           </div>
           <Transition name="pane-collapse">
             <div v-show="expanded.s1" class="pane-collapse-grid">
@@ -185,7 +174,7 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
                   <OcrRunPanel :can-run="canRun" :is-loading="editorStore.isOcrLoading" :error="editorStore.ocrError"
                     @run="handleRunOcr" />
                   <OcrTextEditor :model-value="documentStore.correctedText"
-                    :disabled="editorStore.isOcrLoading || !documentStore.hasOcr"
+                    :disabled="isBusy || !documentStore.hasOcr"
                     @update:model-value="documentStore.setCorrectedText" />
                 </div>
               </div>
@@ -193,24 +182,20 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
           </Transition>
         </div>
 
-        <!-- Step 02: PII masking -->
+        <!-- 步驟 02：PII 遮罩 -->
         <div class="step-panel">
           <div class="step-header" @click="togglePanel('s2')">
             <div class="pane-heading">
               <span class="step-num">02</span>
               <span class="step-title">PII 遮罩</span>
             </div>
-            <svg class="collapse-chevron" :class="{ 'is-collapsed': !expanded.s2 }" viewBox="0 0 20 20"
-              aria-hidden="true">
-              <path d="M5 8 L10 13 L15 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
+            <CollapseChevron :collapsed="!expanded.s2" />
           </div>
           <Transition name="pane-collapse">
             <div v-show="expanded.s2" class="pane-collapse-grid">
               <div class="pane-collapse-inner">
                 <div class="step-body">
-                  <OcrPiiPanel :mask-rects="maskRects" :has-ocr="hasOcr" :disabled="piiPanelDisabled"
+                  <OcrPiiPanel :mask-rects="maskRects" :has-ocr="hasOcr" :disabled="isBusy"
                     :selected-mask-id="selectedMaskId" @detect="handlePiiDetect" @clear="handlePiiClearMasks"
                     @remove="handlePiiRemoveMask" @add-manual="handlePiiAddManual" @update-mask="handlePiiUpdateMask"
                     @select-mask="handleSelectMask" />
@@ -220,18 +205,14 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
           </Transition>
         </div>
 
-        <!-- Step 03: Export -->
+        <!-- 步驟 03：匯出 -->
         <div class="step-panel">
           <div class="step-header" @click="togglePanel('s3')">
             <div class="pane-heading">
               <span class="step-num">03</span>
               <span class="step-title">匯出</span>
             </div>
-            <svg class="collapse-chevron" :class="{ 'is-collapsed': !expanded.s3 }" viewBox="0 0 20 20"
-              aria-hidden="true">
-              <path d="M5 8 L10 13 L15 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
+            <CollapseChevron :collapsed="!expanded.s3" />
           </div>
           <Transition name="pane-collapse">
             <div v-show="expanded.s3" class="pane-collapse-grid">
@@ -453,17 +434,6 @@ function handlePiiUpdateMask(id: string, patch: MaskRectUpdate) {
   min-width: 0;
 }
 
-.collapse-chevron {
-  flex-shrink: 0;
-  width: 1.125rem;
-  height: 1.125rem;
-  color: var(--color-pse-secondary);
-  transition: transform 0.2s ease;
-}
-
-.collapse-chevron.is-collapsed {
-  transform: scaleY(-1);
-}
 
 .step-num {
   font-family: var(--font-mono);

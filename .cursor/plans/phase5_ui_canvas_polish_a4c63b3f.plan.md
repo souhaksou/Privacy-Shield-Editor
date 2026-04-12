@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: validation-pass
     content: 執行 type-check/build/eslint 與手動 E2E 驗收（含 OCR 語言複選、move/resize、color、export）
-    status: pending
+    status: completed
 isProject: false
 ---
 

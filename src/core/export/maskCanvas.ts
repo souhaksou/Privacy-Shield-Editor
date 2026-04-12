@@ -1,18 +1,5 @@
 import type { MaskRect } from "@/types/mask";
-import { DEFAULT_MASK_FILL_COLOR, DEFAULT_MASK_STROKE_COLOR } from "@/types/mask";
-
-/** 與 `completeMaskRect` 一致：空白字串視為缺漏，改用預設色。 */
-function resolveMaskFillStroke(mask: MaskRect): { fill: string; stroke: string } {
-  const fill =
-    mask.fillColor !== undefined && mask.fillColor.trim() !== ""
-      ? mask.fillColor
-      : DEFAULT_MASK_FILL_COLOR;
-  const stroke =
-    mask.strokeColor !== undefined && mask.strokeColor.trim() !== ""
-      ? mask.strokeColor
-      : DEFAULT_MASK_STROKE_COLOR;
-  return { fill, stroke };
-}
+import { resolveMaskColors } from "@/types/mask";
 
 /**
  * 將遮罩列表繪入 2D context（原圖像素座標，與 bitmap 寬高一致）。
@@ -33,7 +20,7 @@ export function paintMaskRectsOnBitmap(
     const w = right - x;
     const h = bottom - y;
     if (w <= 0 || h <= 0) continue;
-    const { fill, stroke } = resolveMaskFillStroke(mask);
+    const { fill, stroke } = resolveMaskColors(mask.fillColor, mask.strokeColor);
     ctx.fillStyle = fill;
     ctx.fillRect(x, y, w, h);
     ctx.strokeStyle = stroke;

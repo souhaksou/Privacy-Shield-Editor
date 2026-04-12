@@ -68,7 +68,7 @@ Handles:
 - OCR text normalization
 - regex-based PII detection
 - mask calculation
-- export helpers
+- export helpers (including shared mask painting onto a 2D bitmap for consistency with preview)
 - PDF generation
 
 #### 2. composables/
@@ -104,17 +104,17 @@ Core document data:
 
 - uploaded image metadata
 - OCR result
-- mask rectangles: geometry in image pixel space (`x`, `y`, `width`, `height`), source (`auto` / `manual`), and a **stable client-side `id`** (string UUID, e.g. v4 via the `uuid` package) so lists can use `:key`, and add / remove / in-place edit target the same logical mask without relying on array index; **`id` is not written into exported PNG/PDF**
+- mask rectangles: geometry in image pixel space (`x`, `y`, `width`, `height`), source (`auto` / `manual`), per-rect **`fillColor` / `strokeColor`** (CSS color strings; defaults applied when missing or blank), and a **stable client-side `id`** (string UUID, e.g. v4 via the `uuid` package) so lists can use `:key`, and add / remove / in-place edit target the same logical mask without relying on array index; **`id` is not written into exported PNG/PDF**
 - export-related derived state
 
 ### editor store
 
 UI state:
 
-- current tool
-- selection state
-- loading state
-- current step / panel state
+- OCR / export loading and mutual exclusion (`isOcrLoading`, `isExporting`)
+- OCR progress, status line, last error; export last error
+- **OCR languages (UI):** booleans for including English (`eng`) and Traditional Chinese (`chi_tra`); a computed **`ocrLang`** string sent to the worker (`eng`, `chi_tra`, or `eng+chi_tra` in fixed order). At least one language must remain selected to run OCR.
+- layout polish does not require new global “mode” flags in this store beyond what the OCR flow needs
 
 ---
 
@@ -128,20 +128,19 @@ Three-layer canvas architecture:
 
 2. maskCanvas
 
-- Draws final masking result
+- Draws committed mask rectangles for preview
+- Uses the same per-rect fill/stroke resolution and draw routine as the off-screen mask layer used in export (`paintMaskRectsOnBitmap` in `src/core/export/maskCanvas.ts`) so preview colors match PNG/PDF output
 
 3. uiCanvas
 
-- Draws temporary interaction visuals
-- selection box
-- hover feedback
-- brush preview
+- Interaction-only: new rectangle drag, hit-testing on existing masks, drag-to-move, corner resize handles, and selection chrome
+- brush preview is not implemented yet (reserved for a future optional phase)
 
 Rules:
 
 - baseCanvas should not be modified by masking logic
 - uiCanvas should not be included in final export
-- export image should combine baseCanvas + maskCanvas only
+- export composes **base image + off-screen mask canvas** (same mask paint semantics as preview); uiCanvas is never part of the export bitmap
 
 ---
 
@@ -161,6 +160,8 @@ OCR is the primary engine for:
 - PII detection
 - possible text-layer PDF export
 
+The worker receives a single `lang` string (e.g. `eng+chi_tra`) derived from editor store checkboxes; switching combination may reload/rebuild the Tesseract worker for that language set.
+
 ---
 
 ## PII Design
@@ -179,17 +180,19 @@ Default PII types:
 - phone
 - credit card
 
-Default masking style:
+Mask appearance:
 
-- black rectangle
+- each `MaskRect` has **`fillColor`** and **`strokeColor`** (user-editable in the PII panel and reflected on canvas preview and export)
+- built-in defaults (e.g. solid fill + stroke) apply when values are omitted or blank strings
 
 Manual editing should allow:
 
-- add mask
+- add mask (canvas drag and/or panel actions)
 - remove mask
+- in-place geometry updates (canvas move/resize and/or numeric fields)
 - optional brush masking later
 
-Mask edits should identify rows by **`id`** (not list index) when removing or updating geometry in place; the **`id` stays the same** for the same logical mask unless the UI discards and recreates that entry.
+Mask edits should identify rows by **`id`** (not list index) when removing or updating geometry or colors in place; the **`id` stays the same** for the same logical mask unless the UI discards and recreates that entry.
 
 ---
 
@@ -197,7 +200,7 @@ Mask edits should identify rows by **`id`** (not list index) when removing or up
 
 ### Image Export
 
-- combine baseCanvas + maskCanvas
+- combine base image with an off-screen mask layer built from current `MaskRect[]` using the same paint path as preview `maskCanvas`
 - exclude uiCanvas
 
 ### PDF Export
@@ -255,8 +258,17 @@ PII
 Canvas full workflow
 
 - complete baseCanvas / maskCanvas / uiCanvas interaction flow
-- keep export output as baseCanvas + maskCanvas only
+- keep export output as base + mask only (off-screen mask for export)
 - keep uiCanvas as interaction-only layer (excluded from export)
+
+### Phase 5
+
+UI + canvas polish (completed)
+
+- OCR language multi-select (`eng` / `chi_tra`) with composed `lang` string
+- canvas hit-test: move and corner-resize existing masks; geometry clamped to image bounds
+- per-mask fill/stroke colors in UI; preview and export share one mask paint implementation
+- OCR flow page layout: workbench / step panels, spacing and visual hierarchy (`OcrFlowView`, related OCR subcomponents)
 
 Do not implement all phases at once.
 

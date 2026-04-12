@@ -22,10 +22,14 @@ interface BuildMaskRectsOptions {
 }
 
 const DEFAULT_OPTIONS: Required<BuildMaskRectsOptions> = {
+  // OCR bbox 本身有 1–2px 邊距誤差，過小的框幾乎都是雜訊，直接過濾。
   minWidth: 2,
   minHeight: 2,
+  // Tesseract word bbox 之間通常有 2–4px 間距；設 6px 讓同一 PII token 分裂的字能合併。
   mergeGapX: 6,
+  // 同一行文字的 y 起點在不同字上最多差 5–7px；設 8px 讓輕微傾斜或行距抖動仍能合併。
   mergeRowDeltaY: 8,
+  // 若兩框垂直重疊不到 30%，視為不同行，不合併。
   minVerticalOverlapRatio: 0.3,
 };
 

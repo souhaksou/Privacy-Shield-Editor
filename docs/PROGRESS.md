@@ -2,12 +2,9 @@
 
 ## Current Status
 
-Project is in active implementation stage.
+Project is in **active maintenance** after Phase 1–5 baselines. Core OCR → optional PII → export pipeline is implemented and polished for layout, mask interaction, per-mask colors, and OCR language selection.
 
-Current goal:
-
-- **Next (planned):** improve **overall UI layout** (OCR flow page, panels, preview area) and **canvas behavior** (selection box, related interactions) — current baseline is acceptable functionally but not satisfactory visually or UX-wise.
-- Detailed scope, todos, and acceptance criteria will live in a **new file under `.cursor/plans/`** (to be added next); this PROGRESS entry is the high-level pointer only.
+**High-level plan reference:** `.cursor/plans/phase5_ui_canvas_polish_a4c63b3f.plan.md` (UI + canvas polish — **completed**; see Completed below).
 
 ---
 
@@ -79,12 +76,20 @@ Current goal:
     - build passed
     - ESLint passed (`eslint . --max-warnings 0`)
     - manual E2E passed (upload → OCR → PII detect → canvas box select → export PNG/PDF)
+- Phase 5 UI + canvas polish:
+  - OCR language: PrimeVue checkboxes for `eng` / `chi_tra`; composed `ocrLang` in editor store; `useOcr` passes string to worker; at least one language required to run
+  - `useCanvasEditor`: hit-test on existing masks; drag to move; corner resize; clamp geometry to image bounds; selection handles on uiCanvas
+  - mask model: `fillColor` / `strokeColor` per rect; panel color inputs; `updateMaskRectById` (and canvas) wired from `OcrFlowView`
+  - preview/export color sync: shared `paintMaskRectsOnBitmap` (`src/core/export/maskCanvas.ts`) for `maskCanvas` preview and `buildMaskCanvas` in export
+  - layout: `OcrFlowView` workbench + collapsible step panels; `OcrCanvasEditor` / `OcrPiiPanel` spacing and visual hierarchy aligned with app tokens
+  - docs: `docs/INFO.md` / `docs/PROGRESS.md` updated to match this phase
+  - automated validation: type-check, build, ESLint (no max-warnings), oxlint, Vitest — all green in CI-style runs
 
 ---
 
 ## In Progress
 
-- **Queued:** UI + canvas polish phase — not started until the new plan file is written; no architecture change to docs/INFO.md unless layering/export rules change.
+- None (open items are optional / future phases below).
 
 ---
 
@@ -128,6 +133,7 @@ Use 3-layer canvas:
 2. Export
 3. PII masking
 4. Canvas full workflow
+5. UI + canvas polish (layout, languages, move/resize, per-mask colors, export parity)
 
 ---
 
@@ -141,7 +147,6 @@ Use 3-layer canvas:
 
 ## Next Suggested Step
 
-1. Add a Cursor plan under `.cursor/plans/` (e.g. UI + canvas polish) listing concrete UI complaints, canvas/selection goals, non-goals, and validation steps.
-2. Implement layout changes (likely `OcrFlowView.vue`, OCR sub-panels, preview/canvas container styles) per that plan.
-3. Implement canvas interaction/visual tweaks in `OcrCanvasEditor.vue` / `useCanvasEditor.ts` per that plan (keep export = base + off-screen mask only unless INFO.md is updated).
-4. Later / optional: brush or advanced mask editing as its own scoped phase; optional Playwright E2E for the main path.
+1. Optional: add Playwright (or similar) smoke E2E for upload → OCR → export path.
+2. Optional: brush or advanced mask editing as a scoped phase if product needs it.
+3. Keep `docs/INFO.md` in sync when export rules, mask model, or OCR contracts change.

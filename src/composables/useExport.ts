@@ -4,6 +4,7 @@ import { buildImagePdf } from "@/core/export/pdfExport";
 import { useDocumentStore } from "@/stores/document";
 import { useEditorStore } from "@/stores/editor";
 import type { MaskRect } from "@/types/mask";
+import { downloadBlob } from "@/utils/downloadFile";
 
 /**
  * 由完整檔名取得主檔名（移除最後一個副檔名），供下載檔名沿用原名。
@@ -14,22 +15,6 @@ import type { MaskRect } from "@/types/mask";
 function baseNameFromFileName(name: string): string {
   const i = name.lastIndexOf(".");
   return i > 0 ? name.slice(0, i) : name;
-}
-
-/**
- * 以暫時 `blob:` URL 觸發瀏覽器下載，並立即釋放 URL。
- *
- * @param blob 要下載的內容
- * @param filename 下載檔名（含副檔名）
- */
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 /**
